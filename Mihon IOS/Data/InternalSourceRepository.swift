@@ -44,6 +44,18 @@ struct InternalSourceRepository: SourceRepository {
             isPinned: false,
             allowsAdultContent: false
         )
+        let asura = Source(
+            id: "asura-en",
+            name: "Asura Scans",
+            kind: .remote,
+            summary: "English manhwa source powered by a Natsu-like runtime.",
+            systemImage: "text.book.closed",
+            language: .english,
+            isEnabled: true,
+            isPinned: false,
+            allowsAdultContent: false
+        )
+
 
         let mangas = [
             Manga(
@@ -105,7 +117,7 @@ struct InternalSourceRepository: SourceRepository {
             Chapter(id: "local-demo-2", mangaID: "local-demo-archive", title: "Episode 2", number: 2, releaseDate: now.addingTimeInterval(-108_000), isDownloaded: true, pages: makePages(prefix: "local-demo-2", accents: ["#193A32", "#32685C", "#8BC3B7"])),
         ]
 
-        self.sourcesData = [kiryuu, remote, local]
+        self.sourcesData = [kiryuu, asura, remote, local]
         self.mangaData = mangas
         self.chapterData = chapters
     }

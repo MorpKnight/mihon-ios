@@ -699,12 +699,17 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
                 return URL(string: "https://v1.kiryuu.to/manga/\(slug)/")
             }
             return URL(string: "https://v1.kiryuu.to")
+        } else if source.id == "asura-en" {
+            if let manga, let slug = manga.id.components(separatedBy: "::").last {
+                return URL(string: "https://asuracomic.net/series/\(slug)/")
+            }
+            return URL(string: "https://asuracomic.net")
         }
         return URL(string: "https://mihon.app")
     }
 
     func supportsLiveSource(_ source: Source) -> Bool {
-        source.kind == .remote && source.id == "kiryuu-id"
+        source.kind == .remote && (source.id == "kiryuu-id" || source.id == "asura-en")
     }
 
     func supportsLiveSource(sourceID: String) -> Bool {
