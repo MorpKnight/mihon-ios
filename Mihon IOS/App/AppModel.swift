@@ -828,6 +828,11 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
                 return URL(string: "https://v1.kiryuu.to/manga/\(slug)/")
             }
             return URL(string: "https://v1.kiryuu.to")
+        } else if source.id == "asura-en" {
+            if let manga, let slug = manga.id.components(separatedBy: "::").last {
+                return URL(string: "https://asuracomic.net/series/\(slug)/")
+            }
+            return URL(string: "https://asuracomic.net")
         }
         if let baseURL = descriptor(for: source.id)?.baseURL, let url = URL(string: baseURL) {
             return url
