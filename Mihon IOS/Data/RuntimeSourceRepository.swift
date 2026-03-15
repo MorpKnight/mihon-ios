@@ -1403,10 +1403,11 @@ struct AsuraScansRuntimeFactory: SourceEngine {
     let family: SourceEngineFamily = .asuraScans
 
     func makeRuntime(from descriptor: SourceDescriptor, source: Source) throws -> any SourceRuntime {
-        guard descriptor.context != nil else {
+        guard let context = descriptor.context else {
             throw RuntimeSourceError.invalidResponse
         }
-        return AsuraScansSourceEngine(source: source, descriptor: descriptor)
+        let apiURL = descriptor.overrides["apiURL"] ?? "https://gg.asuracomic.net"
+        return AsuraAPISourceEngine(source: source, baseURL: context.baseURL, apiBaseURL: apiURL)
     }
 }
 
