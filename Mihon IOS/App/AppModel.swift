@@ -13,6 +13,8 @@ enum BootState: Equatable {
     case failed(String)
 }
 
+private let biometricLockFeatureEnabled = true
+
 @MainActor
 final class AppModel: ObservableObject, LibraryRepository, ReaderProgressRepository, DownloadRepository, TrackingRepository, BackupRepository, SettingsRepository, MigrationRepository {
     @Published private(set) var state: PersistedState
@@ -20,48 +22,74 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
     @Published private(set) var bootState: BootState = .launching
     @Published private(set) var importRecords: [ImportRecord]
     @Published private(set) var importJobsState: [ImportJob]
+    @Published private(set) var repoRecords: [SourceRepoRecord]
     @Published private(set) var sourceMangaCache: [String: [Manga]]
     @Published private(set) var sourceGenreCache: [String: [GenreTag]]
     @Published private(set) var chapterCache: [String: [Chapter]]
     @Published private(set) var pageCache: [String: [ReaderPage]]
     @Published private(set) var sourceErrors: [String: String]
     @Published private(set) var pageLoadErrors: [String: String]
+    @Published private(set) var diagnosticLogs: [DiagnosticLogEntry]
+    @Published private(set) var repoImportErrorMessage: String?
+    @Published private(set) var importingRepoURL: String?
     @Published private(set) var isAppUnlocked = true
     @Published private(set) var biometricErrorMessage: String?
     @Published var releaseNotesPresented = true
 
     private let databaseCoordinator: FileDatabaseCoordinator
     private let legacyStore: AppStateStore
-    private let repository: SourceRepository
+    private var repository: SourceRepository
     private let importRepository: FileImportRepository
     private let localContentRepository: LocalContentRepository
     private let readerAssetRepository: ReaderAssetRepository
+    private let repoImporter: SourceRepoImporter
 
     init(
         store: AppStateStore = AppStateStore(),
-        repository: SourceRepository = RuntimeSourceRepository(),
+        repository: SourceRepository? = nil,
         databaseCoordinator: FileDatabaseCoordinator? = nil,
         localContentRepository: LocalContentRepository = DefaultLocalContentRepository(),
-        readerAssetRepository: ReaderAssetRepository = DefaultReaderAssetRepository()
+        readerAssetRepository: ReaderAssetRepository = DefaultReaderAssetRepository(),
+        repoImporter: SourceRepoImporter = SourceRepoImporter()
     ) {
         self.legacyStore = store
         self.databaseCoordinator = databaseCoordinator ?? FileDatabaseCoordinator(stateStore: store)
-        self.repository = repository
         self.localContentRepository = localContentRepository
         self.readerAssetRepository = readerAssetRepository
+        self.repoImporter = repoImporter
         self.importRepository = FileImportRepository(coordinator: self.databaseCoordinator)
 
         let snapshot = self.databaseCoordinator.loadSnapshot()
-        self.state = snapshot.state
+        let hydratedRepoRecords = snapshot.repoRecords.isEmpty
+            ? snapshot.state.sourceRepos.map {
+                SourceRepoRecord(
+                    id: $0,
+                    url: $0,
+                    title: URL(string: $0)?.host ?? $0,
+                    fetchedAt: .distantPast,
+                    packages: [],
+                    importedSources: [],
+                    lastError: "Repository pending import. Refresh by adding the URL again."
+                )
+            }
+            : snapshot.repoRecords
+        self.repository = repository ?? RuntimeSourceRepository(repoRecords: hydratedRepoRecords)
+        var persistedState = snapshot.state
+        persistedState.sourceRepos = hydratedRepoRecords.map(\.url)
+        self.state = persistedState
         self.importRecords = snapshot.imports
         self.importJobsState = snapshot.importJobs
+        self.repoRecords = hydratedRepoRecords
         self.sourceMangaCache = [:]
         self.sourceGenreCache = [:]
         self.chapterCache = [:]
         self.pageCache = [:]
         self.sourceErrors = [:]
         self.pageLoadErrors = [:]
-        self.sources = repository.sources()
+        self.diagnosticLogs = snapshot.diagnostics
+        self.repoImportErrorMessage = nil
+        self.importingRepoURL = nil
+        self.sources = self.repository.sources()
 
         seedInitialLibraryIfNeeded()
         bootState = .ready
@@ -115,11 +143,15 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
 
     var visibleSources: [Source] {
         sources.filter { source in
-            state.browsePreferences.enabledLanguages.contains(source.language) &&
+            sourceMatchesBrowseLanguagePreferences(source) &&
             (!state.browsePreferences.hideAdultSources || !source.allowsAdultContent) &&
             (!state.browsePreferences.enabledSourcesOnly || source.isEnabled) &&
             (!state.browsePreferences.pinnedSourcesOnly || source.isPinned)
         }
+    }
+
+    var sourceDescriptors: [SourceDescriptor] {
+        repository.descriptors()
     }
 
     func markOnboardingCompleted() {
@@ -579,11 +611,9 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
     }
 
     func setBiometricUnlockEnabled(_ enabled: Bool) {
-        state.securityPreferences.requireBiometricUnlock = enabled
-        if !enabled {
-            isAppUnlocked = true
-            biometricErrorMessage = nil
-        }
+        state.securityPreferences.requireBiometricUnlock = biometricLockFeatureEnabled ? enabled : false
+        isAppUnlocked = true
+        biometricErrorMessage = biometricLockFeatureEnabled ? biometricErrorMessage : nil
         persist()
     }
 
@@ -611,7 +641,7 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
     }
 
     func sourceCatalogItems() -> [SourceCatalogItem] {
-        [
+        let builtInItems = [
             SourceCatalogItem(
                 id: "official-json",
                 title: "Official JSON Catalog",
@@ -621,7 +651,10 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
                 hasUpdate: false,
                 isTrusted: true,
                 languages: [.multi, .english],
-                sources: visibleSources.filter { $0.kind == .remote }
+                languageCodes: ["all", "multi", "en"],
+                sources: visibleSources.filter { $0.kind == .remote && descriptor(for: $0.id)?.origin == "built-in" },
+                originLabel: "Built-in",
+                supportStatus: .live
             ),
             SourceCatalogItem(
                 id: "local-tooling",
@@ -632,30 +665,126 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
                 hasUpdate: false,
                 isTrusted: true,
                 languages: [.multi],
-                sources: visibleSources.filter { $0.kind == .local }
+                languageCodes: ["all", "multi"],
+                sources: visibleSources.filter { $0.kind == .local },
+                originLabel: "Built-in",
+                supportStatus: .live
             ),
         ]
+
+        let importedItems = repoRecords.flatMap { record in
+            record.packages.map { package in
+                let packageSources = package.sources.compactMap { imported in
+                    resolvedSource(for: imported)
+                }
+                let packageStatus = package.sources.map(\.supportStatus).contains(.live)
+                    ? SourceSupportStatus.live
+                    : (package.sources.map(\.supportStatus).contains(.planned) ? .planned : .unsupported)
+                return SourceCatalogItem(
+                    id: "\(record.id)::\(package.id)",
+                    title: package.name,
+                    summary: record.lastError ?? "Imported from \(record.title) with \(package.sources.count) source(s).",
+                    version: package.version,
+                    isInstalled: true,
+                    hasUpdate: false,
+                    isTrusted: record.url.hasPrefix("https://"),
+                    languages: Array(Set(package.sources.map(\.language))).sorted { $0.rawValue < $1.rawValue },
+                    languageCodes: Array(Set(package.sources.map { normalizeLanguageCode($0.languageCode) })).sorted(),
+                    sources: packageSources,
+                    originLabel: record.title,
+                    supportStatus: packageStatus
+                )
+            }
+        }
+
+        return builtInItems + importedItems
     }
 
     func sourcePreferences(for source: Source) -> [SourcePreference] {
+        let descriptor = repository.descriptor(for: source.id)
         let importedCount = source.kind == .local ? "\(importRecords.count) imported title(s)" : "Catalog metadata"
+        let languageValue = descriptor?.languageCode.map(languageFilterTitle(for:)) ?? source.language.rawValue
         return [
-            SourcePreference(id: "\(source.id)-lang", title: "Language", value: source.language.rawValue),
+            SourcePreference(id: "\(source.id)-family", title: "Engine Family", value: source.engineFamily.title),
+            SourcePreference(id: "\(source.id)-runtime", title: "Runtime", value: descriptor?.supportStatus.title ?? "Planned"),
+            SourcePreference(id: "\(source.id)-lang", title: "Language", value: languageValue),
             SourcePreference(id: "\(source.id)-status", title: "Status", value: source.isEnabled ? "Enabled" : "Disabled"),
             SourcePreference(id: "\(source.id)-policy", title: "Adult Policy", value: source.allowsAdultContent ? "Allowed" : "Safe"),
             SourcePreference(id: "\(source.id)-imports", title: "Storage", value: importedCount),
+            SourcePreference(id: "\(source.id)-caps", title: "Capabilities", value: descriptor.map { $0.capabilities.map(\.rawValue).sorted().joined(separator: ", ") } ?? "Unknown"),
+            SourcePreference(id: "\(source.id)-origin", title: "Origin", value: descriptor?.origin ?? "Built-in"),
+            SourcePreference(id: "\(source.id)-package", title: "Package", value: descriptor?.packageName ?? "N/A"),
+            SourcePreference(id: "\(source.id)-version", title: "Version", value: descriptor?.version ?? "N/A"),
         ]
     }
 
-    func addSourceRepo(_ url: String) {
+    func addSourceRepo(_ url: String) async {
         let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, !state.sourceRepos.contains(trimmed) else { return }
-        state.sourceRepos.append(trimmed)
+        guard !trimmed.isEmpty else { return }
+
+        importingRepoURL = trimmed
+        defer { importingRepoURL = nil }
+
+        do {
+            let record = try await repoImporter.importRepo(from: trimmed)
+            repoRecords.removeAll { $0.url == record.url }
+            repoRecords.insert(record, at: 0)
+            state.sourceRepos = repoRecords.map(\.url)
+            repoImportErrorMessage = nil
+            appendDiagnostic(kind: .repo, title: "Repo Imported", message: "Imported \(record.importedSources.count) source(s) from \(record.title).", metadata: ["url": record.url])
+            rebuildSourceRepository()
+            persist()
+        } catch {
+            let failed = repoImporter.failedRecord(for: trimmed, error: error)
+            repoRecords.removeAll { $0.url == failed.url }
+            repoRecords.insert(failed, at: 0)
+            state.sourceRepos = repoRecords.map(\.url)
+            repoImportErrorMessage = failed.lastError
+            appendDiagnostic(kind: .repo, title: "Repo Import Failed", message: failed.lastError ?? error.localizedDescription, metadata: ["url": failed.url])
+            rebuildSourceRepository()
+            persist()
+        }
+    }
+
+    func refreshSourceRepo(_ url: String) async {
+        guard let existing = repoRecords.first(where: { $0.url == url }) else {
+            await addSourceRepo(url)
+            return
+        }
+
+        importingRepoURL = existing.url
+        defer { importingRepoURL = nil }
+
+        let refreshed = await repoImporter.refresh(existing)
+        repoRecords.removeAll { $0.url == existing.url }
+        repoRecords.insert(refreshed, at: 0)
+        state.sourceRepos = repoRecords.map(\.url)
+        repoImportErrorMessage = refreshed.lastError
+        appendDiagnostic(
+            kind: .repo,
+            title: refreshed.lastError == nil ? "Repo Refreshed" : "Repo Refresh Failed",
+            message: refreshed.lastError ?? "Refreshed \(refreshed.importedSources.count) source(s) from \(refreshed.title).",
+            metadata: ["url": refreshed.url]
+        )
+        rebuildSourceRepository()
         persist()
+    }
+
+    func refreshAllSourceRepos() async {
+        let urls = repoRecords.map(\.url)
+        guard !urls.isEmpty else { return }
+        repoImportErrorMessage = nil
+        for url in urls {
+            await refreshSourceRepo(url)
+        }
     }
 
     func removeSourceRepo(_ url: String) {
         state.sourceRepos.removeAll { $0 == url }
+        repoRecords.removeAll { $0.url == url }
+        repoImportErrorMessage = nil
+        appendDiagnostic(kind: .repo, title: "Repo Removed", message: "Removed source repository.", metadata: ["url": url])
+        rebuildSourceRepository()
         persist()
     }
 
@@ -705,15 +834,23 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
             }
             return URL(string: "https://asuracomic.net")
         }
+        if let baseURL = descriptor(for: source.id)?.baseURL, let url = URL(string: baseURL) {
+            return url
+        }
         return URL(string: "https://mihon.app")
     }
 
     func supportsLiveSource(_ source: Source) -> Bool {
-        source.kind == .remote && (source.id == "kiryuu-id" || source.id == "asura-en")
+        guard let descriptor = repository.descriptor(for: source.id) else { return false }
+        return source.kind == .remote && descriptor.supportStatus == .live
     }
 
     func supportsLiveSource(sourceID: String) -> Bool {
         sources.contains { $0.id == sourceID && supportsLiveSource($0) }
+    }
+
+    func descriptor(for sourceID: String) -> SourceDescriptor? {
+        repository.descriptor(for: sourceID)
     }
 
     func sourceError(for sourceID: String) -> String? {
@@ -757,6 +894,7 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
             sourceErrors[source.id] = nil
         } catch {
             sourceErrors[source.id] = error.localizedDescription
+            appendDiagnostic(kind: .source, title: "Source Feed Failed", message: error.localizedDescription, metadata: ["source": source.name, "mode": mode.rawValue])
         }
     }
 
@@ -766,6 +904,7 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
             sourceGenreCache[source.id] = try await repository.genreTags(sourceID: source.id)
         } catch {
             sourceErrors[source.id] = error.localizedDescription
+            appendDiagnostic(kind: .source, title: "Genre Load Failed", message: error.localizedDescription, metadata: ["source": source.name])
         }
     }
 
@@ -780,6 +919,7 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
             return details.manga
         } catch {
             sourceErrors[manga.sourceID] = error.localizedDescription
+            appendDiagnostic(kind: .source, title: "Manga Detail Failed", message: error.localizedDescription, metadata: ["sourceID": manga.sourceID, "manga": manga.title])
             return manga
         }
     }
@@ -795,6 +935,7 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
             return details.chapters
         } catch {
             sourceErrors[manga.sourceID] = error.localizedDescription
+            appendDiagnostic(kind: .source, title: "Chapter Load Failed", message: error.localizedDescription, metadata: ["sourceID": manga.sourceID, "manga": manga.title])
             return chapters(for: manga)
         }
     }
@@ -810,10 +951,14 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
             pageCache[chapter.id] = details.pages
             pageLoadErrors[chapter.id] = details.errorMessage
             sourceErrors[sourceID] = nil
+            if let warning = details.errorMessage, !warning.isEmpty {
+                appendDiagnostic(kind: .reader, title: "Page Load Warning", message: warning, metadata: ["sourceID": sourceID, "chapterID": chapter.id])
+            }
             return details.pages
         } catch {
             sourceErrors[sourceID] = error.localizedDescription
             pageLoadErrors[chapter.id] = error.localizedDescription
+            appendDiagnostic(kind: .reader, title: "Page Load Failed", message: error.localizedDescription, metadata: ["sourceID": sourceID, "chapterID": chapter.id])
             return pageCache[chapter.id] ?? []
         }
     }
@@ -842,6 +987,7 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
             importRecords = result.records
             importJobsState = result.jobs
         } catch {
+            appendDiagnostic(kind: .app, title: "Local Import Failed", message: error.localizedDescription, metadata: [:])
             bootState = .failed("Failed to import local content: \(error.localizedDescription)")
         }
     }
@@ -869,7 +1015,13 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
             "Source repos: \(state.sourceRepos.count)",
             "Page cache: \(pageCache.count)",
             "Chapter cache: \(chapterCache.count)",
+            "Error logs: \(diagnosticLogs.count)",
         ]
+    }
+
+    func clearDiagnostics() {
+        diagnosticLogs.removeAll()
+        persist()
     }
 
     func resetOnboarding() {
@@ -882,17 +1034,17 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
     }
 
     func lockAppIfNeeded() {
-        guard state.securityPreferences.requireBiometricUnlock else { return }
+        guard biometricLockFeatureEnabled, state.securityPreferences.requireBiometricUnlock else { return }
         isAppUnlocked = false
     }
 
     func unlockAppIfNeeded() async {
-        guard state.securityPreferences.requireBiometricUnlock, !isAppUnlocked else { return }
+        guard biometricLockFeatureEnabled, state.securityPreferences.requireBiometricUnlock, !isAppUnlocked else { return }
         await requestBiometricUnlock()
     }
 
     func requestBiometricUnlock() async {
-        guard state.securityPreferences.requireBiometricUnlock else {
+        guard biometricLockFeatureEnabled, state.securityPreferences.requireBiometricUnlock else {
             isAppUnlocked = true
             biometricErrorMessage = nil
             return
@@ -904,6 +1056,7 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
 
         guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &authError) else {
             biometricErrorMessage = authError?.localizedDescription ?? "Face ID is not available on this device."
+            appendDiagnostic(kind: .security, title: "Biometric Unavailable", message: biometricErrorMessage ?? "Face ID is not available.", metadata: [:])
             return
         }
 
@@ -918,26 +1071,25 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
             }
         } catch {
             biometricErrorMessage = error.localizedDescription
+            appendDiagnostic(kind: .security, title: "Biometric Unlock Failed", message: error.localizedDescription, metadata: [:])
         }
     }
 
     private func seedInitialLibraryIfNeeded() {
         guard state.library.isEmpty else { return }
-        if let manga = allManga.first(where: { $0.id == "wind-breaker" }) {
-            toggleLibrary(manga)
-            if let chapter = latestChapter(for: manga) {
-                updateProgress(for: manga, chapter: chapter, pageIndex: 1)
-            }
-            saveNote("Focus migration candidate for reader overlays and chapter actions.", for: manga)
-            linkTracker(service: .anilist, to: manga)
-        }
     }
 
     private func persist() {
         state.schemaVersion = PersistedState.currentSchemaVersion
-        let snapshot = DatabaseSnapshot(state: state, imports: importRecords, importJobs: importJobsState)
+        state.sourceRepos = repoRecords.map(\.url)
+        let snapshot = DatabaseSnapshot(state: state, imports: importRecords, importJobs: importJobsState, repoRecords: repoRecords, diagnostics: diagnosticLogs)
         databaseCoordinator.saveSnapshot(snapshot)
         legacyStore.save(state)
+    }
+
+    private func rebuildSourceRepository() {
+        repository = RuntimeSourceRepository(repoRecords: repoRecords)
+        sources = repository.sources()
     }
 
     private func replaceCachedManga(_ manga: Manga, for sourceID: String) {
@@ -948,6 +1100,104 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
             items.insert(manga, at: 0)
         }
         sourceMangaCache[sourceID] = items
+    }
+
+    private func appendDiagnostic(kind: DiagnosticLogKind, title: String, message: String, metadata: [String: String]) {
+        diagnosticLogs.insert(
+            DiagnosticLogEntry(
+                id: UUID(),
+                timestamp: .now,
+                kind: kind,
+                title: title,
+                message: message,
+                metadata: metadata
+            ),
+            at: 0
+        )
+        diagnosticLogs = Array(diagnosticLogs.prefix(200))
+    }
+
+    private func resolvedSource(for imported: ImportedSourceDescriptor) -> Source? {
+        if let direct = sources.first(where: { $0.id == imported.sourceID }) {
+            return direct
+        }
+        return sources.first { source in
+            guard let descriptor = descriptor(for: source.id) else { return false }
+            return descriptor.engineFamily == imported.engineFamily &&
+                descriptor.baseURL?.caseInsensitiveCompare(imported.baseURL) == .orderedSame
+        }
+    }
+
+    func defaultCatalogLanguageCodes() -> Set<String> {
+        var languageCodes = Set<String>()
+        for language in state.browsePreferences.enabledLanguages {
+            languageCodes.formUnion(codes(for: language))
+        }
+        return languageCodes
+    }
+
+    func languageFilterTitle(for code: String) -> String {
+        switch normalizeLanguageCode(code) {
+        case "en": return "English"
+        case "id": return "Indonesian"
+        case "ja", "jp": return "Japanese"
+        case "all", "multi": return "Multi"
+        default: return code.uppercased()
+        }
+    }
+
+    func sourceCatalogLanguageFilters() -> [(id: String, title: String)] {
+        let codes = Set(sourceCatalogItems().flatMap(\.languageCodes).map(normalizeLanguageCode)).sorted()
+        let dynamic = codes.map { (id: $0, title: languageFilterTitle(for: $0)) }
+        return [("preferred", "Preferred"), ("all", "All")] + dynamic
+    }
+
+    func catalogItems(matchingLanguageFilter filterID: String) -> [SourceCatalogItem] {
+        let items = sourceCatalogItems()
+        switch filterID {
+        case "all":
+            return items
+        case "preferred":
+            let preferred = defaultCatalogLanguageCodes()
+            return items.filter { item in
+                item.languageCodes.isEmpty || !preferred.isDisjoint(with: Set(item.languageCodes.map(normalizeLanguageCode)))
+            }
+        default:
+            let wanted = normalizeLanguageCode(filterID)
+            return items.filter { item in
+                item.languageCodes.contains(where: { normalizeLanguageCode($0) == wanted })
+            }
+        }
+    }
+
+    private func sourceMatchesBrowseLanguagePreferences(_ source: Source) -> Bool {
+        if let code = descriptor(for: source.id)?.languageCode {
+            return defaultCatalogLanguageCodes().contains(normalizeLanguageCode(code))
+        }
+        return state.browsePreferences.enabledLanguages.contains(source.language)
+    }
+
+    private func codes(for language: SourceLanguage) -> Set<String> {
+        switch language {
+        case .english:
+            return ["en"]
+        case .indonesian:
+            return ["id"]
+        case .japanese:
+            return ["ja", "jp"]
+        case .multi:
+            return ["all", "multi"]
+        }
+    }
+
+    private func normalizeLanguageCode(_ code: String) -> String {
+        let lowered = code.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        switch lowered {
+        case "jp":
+            return "ja"
+        default:
+            return lowered
+        }
     }
 }
 
