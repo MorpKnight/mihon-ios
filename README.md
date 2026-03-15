@@ -67,6 +67,8 @@ For behavior questions, Mihon Android should be treated as the reference unless 
 - Prefer small, focused pull requests.
 - Keep reader and source-runtime changes isolated and testable.
 - Avoid checking in local reference repos or machine-specific files.
+- Source family classification tooling lives in `Tools/classify_extensions.py`.
+- Coverage snapshots live in `Docs/source-engine-coverage.json` and `Docs/source-engine-coverage.generated.json`.
 
 ## License
 

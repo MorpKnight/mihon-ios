@@ -7,6 +7,8 @@ import Foundation
 
 protocol SourceRepository {
     func sources() -> [Source]
+    func descriptors() -> [SourceDescriptor]
+    func descriptor(for sourceID: String) -> SourceDescriptor?
     func mangas(for sourceID: String) -> [Manga]
     func chapters(for mangaID: String) -> [Chapter]
     func activeSources() -> [Source]
