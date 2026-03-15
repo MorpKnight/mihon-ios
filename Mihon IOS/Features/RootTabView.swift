@@ -60,5 +60,8 @@ struct RootTabView: View {
             }
             .tag(AppTab.more)
         }
+        .tint(model.chromeTint)
+        .toolbarBackground(.regularMaterial, for: .tabBar)
+        .toolbarBackground(.visible, for: .tabBar)
     }
 }

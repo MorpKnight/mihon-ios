@@ -46,6 +46,12 @@ struct MoreView: View {
                 } label: {
                     Label("Data & Storage", systemImage: "externaldrive")
                 }
+
+                NavigationLink {
+                    DiagnosticsLogView()
+                } label: {
+                    Label("Error Logs", systemImage: "exclamationmark.bubble")
+                }
             }
 
             Section("Settings & About") {

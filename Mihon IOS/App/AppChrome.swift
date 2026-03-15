@@ -8,6 +8,7 @@ import SwiftUI
 struct AppChromeView: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.scenePhase) private var scenePhase
+    private let biometricLockEnabled = true
 
     var body: some View {
         ZStack {
@@ -41,13 +42,13 @@ struct AppChromeView: View {
                 .foregroundStyle(.primary)
             }
 
-            if model.state.securityPreferences.requireBiometricUnlock && !model.isAppUnlocked && scenePhase == .active {
+            if biometricLockEnabled && model.state.securityPreferences.requireBiometricUnlock && !model.isAppUnlocked && scenePhase == .active {
                 BiometricLockView()
                     .transition(.opacity)
             }
         }
         .onAppear {
-            if model.state.securityPreferences.requireBiometricUnlock {
+            if biometricLockEnabled && model.state.securityPreferences.requireBiometricUnlock {
                 model.lockAppIfNeeded()
                 Task { await model.unlockAppIfNeeded() }
             }
@@ -55,9 +56,13 @@ struct AppChromeView: View {
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .active:
-                Task { await model.unlockAppIfNeeded() }
+                if biometricLockEnabled {
+                    Task { await model.unlockAppIfNeeded() }
+                }
             case .inactive, .background:
-                model.lockAppIfNeeded()
+                if biometricLockEnabled {
+                    model.lockAppIfNeeded()
+                }
             @unknown default:
                 break
             }
