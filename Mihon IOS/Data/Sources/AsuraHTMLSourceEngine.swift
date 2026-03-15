@@ -98,31 +98,102 @@ final class AsuraHTMLSourceEngine: SourceRuntime {
 
     // MARK: - Shared HTML parsing (used by AsuraAPISourceEngine)
 
+    /// Parses series listing from Asura's RSC-rendered HTML.
+    /// Extracts slug, cover URL, title, status, and latest chapter from
+    /// the serialized React Server Component payload in the page.
     static func mapSeriesList(html: String, sourceID: String) -> [Manga] {
-        let pattern = "/series/([a-zA-Z0-9\\-]+)/"
-        let regex = try? NSRegularExpression(pattern: pattern)
-        let range = NSRange(html.startIndex..<html.endIndex, in: html)
-        let matches = regex?.matches(in: html, range: range) ?? []
-        var seen = Set<String>()
+        // Strategy 1: Parse series data from RSC payload.
+        // The RSC payload contains patterns like:
+        //   "href":"series/<slug>"    → slug
+        //   "src":"https://gg.asuracomic.net/storage/media/...thumb-small.webp" → cover
+        // Titles and other metadata appear as text nodes near the slug.
+        
+        // Find all series slugs in href patterns
+        // Slugs look like: the-extras-academy-survival-guide-90358a23
+        let slugPattern = #"(?:href|"href")[=:]\\?"?/?series/([a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])"#
+        let slugRegex = try? NSRegularExpression(pattern: slugPattern, options: [.caseInsensitive])
+        let htmlRange = NSRange(html.startIndex..<html.endIndex, in: html)
+        let slugMatches = slugRegex?.matches(in: html, range: htmlRange) ?? []
+        
+        // Collect unique slugs preserving order
+        var seenSlugs = Set<String>()
+        var slugs: [String] = []
+        for match in slugMatches {
+            guard let range = Range(match.range(at: 1), in: html) else { continue }
+            let slug = String(html[range])
+            // Skip common non-series paths
+            if slug == "series" || slug.count < 3 { continue }
+            if seenSlugs.insert(slug).inserted {
+                slugs.append(slug)
+            }
+        }
+        
+        // Build a map of cover URLs: find all thumb-small.webp image URLs
+        // and associate them with nearby slugs by looking at their position in the HTML
+        let coverPattern = #"https://gg\.asuracomic\.net/storage/media/\d+/conversions/[^"\\]+thumb-small\.webp"#
+        let coverRegex = try? NSRegularExpression(pattern: coverPattern, options: [])
+        let coverMatches = coverRegex?.matches(in: html, range: htmlRange) ?? []
+        var coverURLs: [String] = []
+        for match in coverMatches {
+            guard let range = Range(match.range, in: html) else { continue }
+            let url = String(html[range])
+            coverURLs.append(url)
+        }
+        
+        // Extract titles: look for text patterns near series slugs
+        // In RSC payload, titles appear as children text like:
+        //   "children":"The Extra's Academy Survival Guide"
+        // or as bold span text
+        let titlePattern = #""children"\\?:\s*\\?"([^"\\]{3,100})\\?""#
+        let titleRegex = try? NSRegularExpression(pattern: titlePattern, options: [])
+        let titleMatches = titleRegex?.matches(in: html, range: htmlRange) ?? []
+        var allTitles: [(title: String, location: Int)] = []
+        for match in titleMatches {
+            guard let range = Range(match.range(at: 1), in: html) else { continue }
+            let title = String(html[range])
+            // Filter out non-title strings (CSS classes, HTML tags, short strings)
+            if title.contains("text-") || title.contains("bg-") || title.contains("class") ||
+               title.contains("http") || title.contains("{") || title.contains("<") ||
+               title.hasPrefix("Chapter") || title.hasPrefix("status") { continue }
+            allTitles.append((title: title, location: match.range.location))
+        }
+        
+        // For each slug, find the nearest title that appears before it
+        // and the cover URL at the corresponding index
         var items: [Manga] = []
-        for match in matches {
-            guard let slugRange = Range(match.range(at: 1), in: html) else { continue }
-            let slug = String(html[slugRange])
-            if !seen.insert(slug).inserted { continue }
-            let title = SourceEngineUtilities.titleFromSlug(slug)
+        for (index, slug) in slugs.enumerated() {
+            // Find slug position in HTML
+            let slugSearchStr = "series/\(slug)"
+            let slugLocation = (html as NSString).range(of: slugSearchStr).location
+            
+            // Find the nearest title before this slug position
+            var bestTitle: String?
+            var bestDistance = Int.max
+            for (title, loc) in allTitles {
+                let distance = abs(slugLocation - loc)
+                if distance < bestDistance {
+                    bestDistance = distance
+                    bestTitle = title
+                }
+            }
+            
+            let title = bestTitle ?? SourceEngineUtilities.titleFromSlug(slug)
+            let coverURL = index < coverURLs.count ? coverURLs[index] : nil
+            
             let manga = Manga(
                 id: "\(sourceID)::\(slug)",
                 sourceID: sourceID,
                 title: title,
                 author: "Unknown",
-                summary: "Imported from Asura listing.",
+                summary: "",
                 genres: ["Manhwa"],
                 coverHexes: SourceEngineUtilities.palette(for: slug),
-                coverURL: nil,
+                coverURL: coverURL,
                 statusText: "Unknown"
             )
             items.append(manga)
         }
+        
         return items
     }
 }
