@@ -34,7 +34,7 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
     @Published private(set) var importingRepoURL: String?
     @Published private(set) var isAppUnlocked = true
     @Published private(set) var biometricErrorMessage: String?
-    @Published var releaseNotesPresented = true
+    @Published var releaseNotesPresented = false
 
     private let databaseCoordinator: FileDatabaseCoordinator
     private let legacyStore: AppStateStore
@@ -92,6 +92,14 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
         self.sources = self.repository.sources()
 
         seedInitialLibraryIfNeeded()
+        
+        let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+        if persistedState.appSettings.releaseNotesSeenVersion != currentVersion {
+            self.releaseNotesPresented = true
+            self.state.appSettings.releaseNotesSeenVersion = currentVersion
+            // Cannot call normal class methods yet, but init covers initial state; we will call persist after init formally completes or rely on subsequent persists.
+        }
+
         bootState = .ready
     }
 
@@ -126,7 +134,8 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
                 repository.sources()
                     .filter { $0.kind == .remote }
                     .flatMap { repository.mangas(for: $0.id) } +
-                sourceMangaCache.values.flatMap { $0 }
+                sourceMangaCache.values.flatMap { $0 } +
+                state.persistedMangas
             ).map { ($0.id, $0) }
         )
         return remote.values.sorted { $0.title < $1.title } +
@@ -269,6 +278,11 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
     func toggleLibrary(_ manga: Manga) {
         if isInLibrary(manga) {
             state.library.removeAll { $0.mangaID == manga.id }
+            
+            // Cleanup persisted backup if history doesn't mention it either
+            if !state.history.contains(where: { $0.mangaID == manga.id }) {
+                state.persistedMangas.removeAll { $0.id == manga.id }
+            }
         } else {
             state.library.insert(
                 LibraryEntry(
@@ -278,6 +292,10 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
                 ),
                 at: 0
             )
+            // Persist core model so it survives a restart/cache wipe
+            if !state.persistedMangas.contains(where: { $0.id == manga.id }) {
+                state.persistedMangas.append(manga)
+            }
         }
         persist()
     }
@@ -462,6 +480,10 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
                 at: 0
             )
             state.history = Array(state.history.prefix(max(state.advancedPreferences.historyLimit, 1)))
+
+            if !state.persistedMangas.contains(where: { $0.id == manga.id }) {
+                state.persistedMangas.append(manga)
+            }
         }
         persist()
     }

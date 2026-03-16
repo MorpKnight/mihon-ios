@@ -452,6 +452,7 @@ struct AppSettings: Codable, Hashable {
     var downloadedOnly: Bool
     var incognitoMode: Bool
     var appLanguageCode: String
+    var releaseNotesSeenVersion: String
 }
 
 enum DownloadQueueStrategy: String, Codable, CaseIterable, Identifiable {
@@ -719,6 +720,7 @@ struct PersistedState: Codable, Hashable {
     var mangaNotes: [String: String]
     var onboardingCompleted: Bool
     var sourceRepos: [String]
+    var persistedMangas: [Manga] // Added
 
     static let `default` = PersistedState(
         schemaVersion: currentSchemaVersion,
@@ -749,7 +751,8 @@ struct PersistedState: Codable, Hashable {
             prefersDarkMode: false,
             downloadedOnly: false,
             incognitoMode: false,
-            appLanguageCode: "system"
+            appLanguageCode: "system",
+            releaseNotesSeenVersion: "" // Added
         ),
         downloadPreferences: DownloadPreferences(
             wifiOnly: true,
@@ -778,7 +781,8 @@ struct PersistedState: Codable, Hashable {
         trackers: [],
         mangaNotes: [:],
         onboardingCompleted: false,
-        sourceRepos: ["https://repo.mihon.app/index.json"]
+        sourceRepos: ["https://repo.mihon.app/index.json"],
+        persistedMangas: [] // Added
     )
 
     enum CodingKeys: String, CodingKey {
@@ -798,6 +802,7 @@ struct PersistedState: Codable, Hashable {
         case mangaNotes
         case onboardingCompleted
         case sourceRepos
+        case persistedMangas // Added
     }
 
     init(
@@ -816,7 +821,8 @@ struct PersistedState: Codable, Hashable {
         trackers: [TrackerBinding],
         mangaNotes: [String: String],
         onboardingCompleted: Bool,
-        sourceRepos: [String]
+        sourceRepos: [String],
+        persistedMangas: [Manga] // Added
     ) {
         self.schemaVersion = schemaVersion
         self.categories = categories
@@ -834,6 +840,7 @@ struct PersistedState: Codable, Hashable {
         self.mangaNotes = mangaNotes
         self.onboardingCompleted = onboardingCompleted
         self.sourceRepos = sourceRepos
+        self.persistedMangas = persistedMangas // Added
     }
 
     init(from decoder: Decoder) throws {
@@ -856,6 +863,7 @@ struct PersistedState: Codable, Hashable {
         mangaNotes = try container.decodeIfPresent([String: String].self, forKey: .mangaNotes) ?? [:]
         onboardingCompleted = try container.decodeIfPresent(Bool.self, forKey: .onboardingCompleted) ?? false
         sourceRepos = try container.decodeIfPresent([String].self, forKey: .sourceRepos) ?? defaults.sourceRepos
+        persistedMangas = try container.decodeIfPresent([Manga].self, forKey: .persistedMangas) ?? [] // Added
     }
 }
 
