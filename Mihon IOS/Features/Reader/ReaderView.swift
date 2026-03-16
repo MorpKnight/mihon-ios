@@ -561,7 +561,14 @@ struct ReaderView: View {
                 pages: pages
             )
         }
-        let targetIndex = pendingPageIndexAfterChapterChange ?? pageIndex
+        let targetIndex: Int
+        if let pending = pendingPageIndexAfterChapterChange {
+            targetIndex = pending
+        } else if let progress = model.progress(for: manga), progress.chapterID == currentChapter.id {
+            targetIndex = progress.pageIndex
+        } else {
+            targetIndex = pageIndex
+        }
         pageIndex = min(max(targetIndex, 0), max(currentPages.count - 1, 0))
         sliderPageIndex = Double(pageIndex + 1)
         pendingPageIndexAfterChapterChange = nil

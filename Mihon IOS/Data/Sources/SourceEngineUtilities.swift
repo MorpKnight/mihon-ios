@@ -147,6 +147,12 @@ enum SourceEngineUtilities {
     }
 
     static func titleFromSlug(_ slug: String) -> String {
-        slug.replacingOccurrences(of: "-", with: " ").capitalized
+        // Strip trailing hash suffixes common in Asura slugs (e.g. "my-title-90358a23")
+        let cleaned = slug.replacingOccurrences(
+            of: #"-[0-9a-f]{6,10}$"#,
+            with: "",
+            options: .regularExpression
+        )
+        return cleaned.replacingOccurrences(of: "-", with: " ").capitalized
     }
 }

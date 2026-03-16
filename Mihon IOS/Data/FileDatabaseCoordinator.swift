@@ -11,6 +11,8 @@ struct DatabaseSnapshot: Codable, Hashable {
     var importJobs: [ImportJob]
     var repoRecords: [SourceRepoRecord]
     var diagnostics: [DiagnosticLogEntry]
+    var cachedManga: [String: [Manga]]
+    var cachedChapters: [String: [Chapter]]
 
     static let empty = DatabaseSnapshot(state: .default, imports: [], importJobs: [], repoRecords: [], diagnostics: [])
 
@@ -20,6 +22,8 @@ struct DatabaseSnapshot: Codable, Hashable {
         case importJobs
         case repoRecords
         case diagnostics
+        case cachedManga
+        case cachedChapters
     }
 
     init(state: PersistedState, imports: [ImportRecord], importJobs: [ImportJob], repoRecords: [SourceRepoRecord]) {
@@ -28,14 +32,18 @@ struct DatabaseSnapshot: Codable, Hashable {
         self.importJobs = importJobs
         self.repoRecords = repoRecords
         self.diagnostics = []
+        self.cachedManga = [:]
+        self.cachedChapters = [:]
     }
 
-    init(state: PersistedState, imports: [ImportRecord], importJobs: [ImportJob], repoRecords: [SourceRepoRecord], diagnostics: [DiagnosticLogEntry]) {
+    init(state: PersistedState, imports: [ImportRecord], importJobs: [ImportJob], repoRecords: [SourceRepoRecord], diagnostics: [DiagnosticLogEntry], cachedManga: [String: [Manga]] = [:], cachedChapters: [String: [Chapter]] = [:]) {
         self.state = state
         self.imports = imports
         self.importJobs = importJobs
         self.repoRecords = repoRecords
         self.diagnostics = diagnostics
+        self.cachedManga = cachedManga
+        self.cachedChapters = cachedChapters
     }
 
     init(from decoder: Decoder) throws {
@@ -45,6 +53,8 @@ struct DatabaseSnapshot: Codable, Hashable {
         importJobs = try container.decodeIfPresent([ImportJob].self, forKey: .importJobs) ?? []
         repoRecords = try container.decodeIfPresent([SourceRepoRecord].self, forKey: .repoRecords) ?? []
         diagnostics = try container.decodeIfPresent([DiagnosticLogEntry].self, forKey: .diagnostics) ?? []
+        cachedManga = try container.decodeIfPresent([String: [Manga]].self, forKey: .cachedManga) ?? [:]
+        cachedChapters = try container.decodeIfPresent([String: [Chapter]].self, forKey: .cachedChapters) ?? [:]
     }
 }
 

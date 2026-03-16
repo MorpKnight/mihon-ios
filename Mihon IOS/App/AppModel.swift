@@ -80,9 +80,9 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
         self.importRecords = snapshot.imports
         self.importJobsState = snapshot.importJobs
         self.repoRecords = hydratedRepoRecords
-        self.sourceMangaCache = [:]
+        self.sourceMangaCache = snapshot.cachedManga
         self.sourceGenreCache = [:]
-        self.chapterCache = [:]
+        self.chapterCache = snapshot.cachedChapters
         self.pageCache = [:]
         self.sourceErrors = [:]
         self.pageLoadErrors = [:]
@@ -278,8 +278,19 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
                 ),
                 at: 0
             )
+            // Ensure the manga object is in the cache so it survives app restarts
+            ensureMangaCached(manga)
         }
         persist()
+    }
+
+    private func ensureMangaCached(_ manga: Manga) {
+        guard manga.sourceID != "local-files" else { return }
+        var items = sourceMangaCache[manga.sourceID] ?? []
+        if !items.contains(where: { $0.id == manga.id }) {
+            items.append(manga)
+            sourceMangaCache[manga.sourceID] = items
+        }
     }
 
     func assignCategory(_ categoryID: String, to manga: Manga) {
@@ -892,6 +903,7 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
             }
             sourceMangaCache[source.id] = items
             sourceErrors[source.id] = nil
+            persist()
         } catch {
             sourceErrors[source.id] = error.localizedDescription
             appendDiagnostic(kind: .source, title: "Source Feed Failed", message: error.localizedDescription, metadata: ["source": source.name, "mode": mode.rawValue])
@@ -916,6 +928,7 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
             let details = try await repository.mangaDetails(sourceID: manga.sourceID, mangaIDOrURL: manga.id)
             replaceCachedManga(details.manga, for: manga.sourceID)
             sourceErrors[manga.sourceID] = nil
+            persist()
             return details.manga
         } catch {
             sourceErrors[manga.sourceID] = error.localizedDescription
@@ -932,6 +945,7 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
             let details = try await repository.chapters(sourceID: manga.sourceID, manga: manga)
             chapterCache[manga.id] = details.chapters
             sourceErrors[manga.sourceID] = nil
+            persist()
             return details.chapters
         } catch {
             sourceErrors[manga.sourceID] = error.localizedDescription
@@ -1082,7 +1096,15 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
     private func persist() {
         state.schemaVersion = PersistedState.currentSchemaVersion
         state.sourceRepos = repoRecords.map(\.url)
-        let snapshot = DatabaseSnapshot(state: state, imports: importRecords, importJobs: importJobsState, repoRecords: repoRecords, diagnostics: diagnosticLogs)
+        let snapshot = DatabaseSnapshot(
+            state: state,
+            imports: importRecords,
+            importJobs: importJobsState,
+            repoRecords: repoRecords,
+            diagnostics: diagnosticLogs,
+            cachedManga: sourceMangaCache,
+            cachedChapters: chapterCache
+        )
         databaseCoordinator.saveSnapshot(snapshot)
         legacyStore.save(state)
     }

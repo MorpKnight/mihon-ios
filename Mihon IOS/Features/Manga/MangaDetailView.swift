@@ -88,11 +88,15 @@ struct MangaDetailView: View {
                     }
                 }
 
-                if let startChapter = (sortedChapters.first ?? model.startChapter(for: displayManga)) {
+                if let startChapter = model.startChapter(for: displayManga) ?? sortedChapters.first {
                     NavigationLink {
                         ReaderView(manga: displayManga, initialChapter: startChapter)
                     } label: {
-                        Label("Resume Reading", systemImage: "play.circle.fill")
+                        if model.progress(for: displayManga) != nil {
+                            Label("Resume Reading", systemImage: "play.circle.fill")
+                        } else {
+                            Label("Start Reading", systemImage: "play.circle")
+                        }
                     }
                 }
 
