@@ -164,22 +164,59 @@ struct SourceView: View {
 
             Section {
                 if isLoading {
-                    HStack {
-                        ProgressView()
-                        Text("Loading \(source.name)…")
-                            .foregroundStyle(.secondary)
+                    ForEach(0..<6, id: \.self) { _ in
+                        HStack(spacing: 14) {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.secondary.opacity(0.1))
+                                .frame(width: 56, height: 74)
+
+                            VStack(alignment: .leading, spacing: 6) {
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(Color.secondary.opacity(0.1))
+                                    .frame(width: 140, height: 16)
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(Color.secondary.opacity(0.1))
+                                    .frame(width: 100, height: 12)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    .redacted(reason: .placeholder)
+                } else {
+                    if let error = model.sourceError(for: source.id) {
+                        ContentUnavailableView("Source Error", systemImage: "wifi.exclamationmark", description: Text(error))
                     }
-                }
 
-                if let error = model.sourceError(for: source.id) {
-                    ContentUnavailableView("Source Error", systemImage: "wifi.exclamationmark", description: Text(error))
-                }
-
-                ForEach(displayedManga) { manga in
-                    NavigationLink {
-                        MangaDetailView(manga: manga)
-                    } label: {
-                        MangaRow(manga: manga)
+                    ForEach(displayedManga) { manga in
+                        NavigationLink {
+                            MangaDetailView(manga: manga)
+                        } label: {
+                            MangaRow(manga: manga)
+                        }
+                        .contextMenu {
+                            Button {
+                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                model.toggleLibrary(manga)
+                            } label: {
+                                if model.isMangaInLibrary(manga) {
+                                    Label("Remove from Library", systemImage: "bookmark.slash")
+                                } else {
+                                    Label("Add to Library", systemImage: "bookmark")
+                                }
+                            }
+                        }
+                        .swipeActions(edge: .leading) {
+                            Button {
+                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                model.toggleLibrary(manga)
+                            } label: {
+                                if model.isMangaInLibrary(manga) {
+                                    Label("Remove", systemImage: "bookmark.slash")
+                                } else {
+                                    Label("Add", systemImage: "bookmark")
+                                }
+                            }
+                            .tint(model.isMangaInLibrary(manga) ? .red : .blue)
+                        }
                     }
                 }
             } header: {

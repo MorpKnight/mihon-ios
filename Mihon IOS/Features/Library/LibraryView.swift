@@ -54,11 +54,11 @@ struct LibraryView: View {
 
             Section("Library") {
                 if items.isEmpty {
-                    ContentUnavailableView(
-                        "No manga here",
-                        systemImage: "books.vertical",
-                        description: Text("Add titles from Browse to start your iOS library baseline.")
-                    )
+                    ContentUnavailableView {
+                        Label("Library is Empty", systemImage: "books.vertical")
+                    } description: {
+                        Text("Add titles from Browse to start your iOS library baseline.")
+                    }
                     .padding(.vertical, 12)
                 } else {
                     ForEach(items) { item in
@@ -92,9 +92,30 @@ struct LibraryView: View {
                             }
                             .padding(.vertical, 3)
                         }
+                        .contextMenu {
+                            Button {
+                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                // Example: Quick Read
+                                if let chapter = model.startChapter(for: item.manga) {
+                                    // Normally we would invoke a navigation hack or state via environment, but for now we just play haptic
+                                }
+                            } label: {
+                                Label("Read", systemImage: "book")
+                            }
+
+                            if !model.state.securityPreferences.lockLibraryEdits {
+                                Button(role: .destructive) {
+                                    UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+                                    model.toggleLibrary(item.manga)
+                                } label: {
+                                    Label("Remove from Library", systemImage: "trash")
+                                }
+                            }
+                        }
                         .swipeActions {
                             if !model.state.securityPreferences.lockLibraryEdits {
                                 Button(role: .destructive) {
+                                    UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
                                     model.toggleLibrary(item.manga)
                                 } label: {
                                     Label("Delete", systemImage: "trash")
