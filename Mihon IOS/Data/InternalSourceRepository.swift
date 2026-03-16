@@ -52,6 +52,7 @@ struct InternalSourceRepository: SourceRepository {
             id: "asura-en",
             name: "Asura Scans",
             kind: .remote,
+            engineFamily: .api,
             summary: "English manhwa source powered by a Natsu-like runtime.",
             systemImage: "text.book.closed",
             language: .english,
