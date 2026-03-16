@@ -10,6 +10,62 @@ enum SourceKind: String, Codable, CaseIterable, Hashable {
     case local
 }
 
+enum SourceEngineFamily: String, Codable, CaseIterable, Hashable, Identifiable {
+    case internalCatalog
+    case local
+    case natsuId
+    case madara
+    case mangaThemesia
+    case mangaBox
+    case asuraScans
+    case komikIndoID
+    case nhentai
+    case zeistManga
+    case fmReader
+    case foolSlide
+    case newToki
+    case customParsed
+    case api
+    case unknown
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .internalCatalog: return "Internal Catalog"
+        case .local: return "Local Files"
+        case .natsuId: return "NatsuId"
+        case .madara: return "Madara"
+        case .mangaThemesia: return "MangaThemesia"
+        case .mangaBox: return "MangaBox"
+        case .asuraScans: return "Asura Scans"
+        case .komikIndoID: return "KomikIndoID"
+        case .nhentai: return "NHentai"
+        case .zeistManga: return "ZeistManga"
+        case .fmReader: return "FMReader"
+        case .foolSlide: return "FoolSlide"
+        case .newToki: return "NewToki"
+        case .customParsed: return "Custom Http/Parsed"
+        case .api: return "API"
+        case .unknown: return "Unknown"
+        }
+    }
+}
+
+enum SourceCapability: String, Codable, CaseIterable, Hashable, Identifiable {
+    case popular
+    case latest
+    case search
+    case mangaDetail
+    case chapterList
+    case pageList
+    case filters
+    case preferences
+    case reader
+
+    var id: String { rawValue }
+}
+
 enum SourceLanguage: String, Codable, CaseIterable, Identifiable, Hashable {
     case english = "English"
     case indonesian = "Indonesian"
@@ -23,12 +79,67 @@ struct Source: Identifiable, Codable, Hashable {
     let id: String
     let name: String
     let kind: SourceKind
+    let engineFamily: SourceEngineFamily
     let summary: String
     let systemImage: String
     let language: SourceLanguage
     let isEnabled: Bool
     let isPinned: Bool
     let allowsAdultContent: Bool
+}
+
+enum SourceAuthMode: String, Codable, Hashable {
+    case none
+    case webSession
+    case cookies
+    case unsupported
+}
+
+struct SourceRequestPolicy: Codable, Hashable {
+    let rateLimit: Int
+    let referrer: String?
+    let userAgent: String?
+    let requiresCookies: Bool
+}
+
+struct SourceRuntimeContext: Codable, Hashable {
+    let baseURL: String
+    let language: SourceLanguage
+    let authMode: SourceAuthMode
+    let requestPolicy: SourceRequestPolicy
+}
+
+struct SourceFilterSchema: Identifiable, Codable, Hashable {
+    let id: String
+    let title: String
+    let kind: String
+}
+
+struct SourcePreferenceSchema: Identifiable, Codable, Hashable {
+    let id: String
+    let title: String
+    let detail: String
+}
+
+struct SourceDescriptor: Identifiable, Codable, Hashable {
+    let id: String
+    let sourceID: String
+    let name: String
+    let engineFamily: SourceEngineFamily
+    let kind: SourceKind
+    let language: SourceLanguage
+    let baseURL: String?
+    let capabilities: Set<SourceCapability>
+    let featureFlags: [String]
+    let overrides: [String: String]
+    let context: SourceRuntimeContext?
+    let filterSchema: [SourceFilterSchema]
+    let preferenceSchema: [SourcePreferenceSchema]
+    let packageName: String?
+    let version: String?
+    let languageCode: String?
+    let origin: String?
+    let supportStatus: SourceSupportStatus
 }
 
 struct SourceSearchRequest: Hashable {
@@ -101,7 +212,94 @@ struct SourceCatalogItem: Identifiable, Hashable {
     let hasUpdate: Bool
     let isTrusted: Bool
     let languages: [SourceLanguage]
+    let languageCodes: [String]
     let sources: [Source]
+    let originLabel: String
+    let supportStatus: SourceSupportStatus
+}
+
+enum SourceSupportStatus: String, Codable, CaseIterable, Hashable, Identifiable {
+    case live
+    case planned
+    case unsupported
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .live: return "Live"
+        case .planned: return "Planned"
+        case .unsupported: return "Unsupported"
+        }
+    }
+}
+
+struct SourceClassificationResult: Codable, Hashable {
+    let engineFamily: SourceEngineFamily
+    let supportStatus: SourceSupportStatus
+    let featureFlags: [String]
+    let overrides: [String: String]
+    let reason: String
+}
+
+struct ImportedSourceDescriptor: Identifiable, Codable, Hashable {
+    let id: String
+    let sourceID: String
+    let name: String
+    let language: SourceLanguage
+    let languageCode: String
+    let baseURL: String
+    let packageName: String
+    let version: String
+    let allowsAdultContent: Bool
+    let apkURL: String?
+    let engineFamily: SourceEngineFamily
+    let supportStatus: SourceSupportStatus
+    let capabilities: Set<SourceCapability>
+    let featureFlags: [String]
+    let overrides: [String: String]
+    let origin: String
+    let summary: String
+}
+
+struct SourceRepoPackage: Identifiable, Codable, Hashable {
+    let id: String
+    let name: String
+    let packageName: String
+    let apkURL: String?
+    let languageCode: String
+    let version: String
+    let allowsAdultContent: Bool
+    let sources: [ImportedSourceDescriptor]
+}
+
+struct SourceRepoRecord: Identifiable, Codable, Hashable {
+    let id: String
+    let url: String
+    let title: String
+    let fetchedAt: Date
+    let packages: [SourceRepoPackage]
+    let importedSources: [ImportedSourceDescriptor]
+    let lastError: String?
+}
+
+enum SourceRepoImportError: String, Codable, Hashable, Error {
+    case invalidURL
+    case unreadablePayload
+    case invalidPayload
+}
+
+extension SourceRepoImportError: LocalizedError {
+    var errorDescription: String? {
+        switch self {
+        case .invalidURL:
+            return "The repository URL is not valid."
+        case .unreadablePayload:
+            return "The repository could not be downloaded."
+        case .invalidPayload:
+            return "The repository JSON format is not supported by the current importer."
+        }
+    }
 }
 
 struct SourcePreference: Identifiable, Hashable {
@@ -496,6 +694,7 @@ enum MoreRoute: Hashable {
     case stats
     case settings
     case dataStorage
+    case diagnostics
     case categories
     case about
     case backupCreate

@@ -1,0 +1,30 @@
+{
+  "counts": {
+    "api": 13,
+    "customParsed": 262,
+    "fmReader": 6,
+    "foolSlide": 6,
+    "madara": 341,
+    "mangaThemesia": 133,
+    "natsuId": 3,
+    "unknown": 440,
+    "zeistManga": 33
+  },
+  "notes": [
+    "Counts are generated from the local extensions-source reference repository.",
+    "Counts are deduplicated per source slug and language, not per Kotlin file.",
+    "customParsed is intentionally treated as a separate product line and not folded into shared family engines.",
+    "unknown indicates sources that still need additional clustering or helper detection.",
+    "See Docs/source-engine-coverage.generated.json for the full machine-generated family map."
+  ],
+  "priorityOrder": [
+    "madara",
+    "mangaThemesia",
+    "zeistManga",
+    "natsuId",
+    "fmReader",
+    "foolSlide",
+    "newToki",
+    "customParsed"
+  ]
+}
