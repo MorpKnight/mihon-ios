@@ -49,7 +49,7 @@ struct RootTabView: View {
             .tabItem {
                 Label("Updates", systemImage: "sparkles.rectangle.stack")
             }
-            .badge(model.updateFeed.count)
+            .badge(model.updateFeed.count > 0 ? model.updateFeed.count : 0)
             .tag(AppTab.updates)
 
             NavigationStack {
@@ -61,7 +61,10 @@ struct RootTabView: View {
             .tag(AppTab.more)
         }
         .tint(model.chromeTint)
-        .toolbarBackground(.regularMaterial, for: .tabBar)
+        .toolbarBackground(.ultraThinMaterial, for: .tabBar)
         .toolbarBackground(.visible, for: .tabBar)
+        .onChange(of: selectedTab) { _ in
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        }
     }
 }

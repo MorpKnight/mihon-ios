@@ -15,7 +15,6 @@ struct SourceFamilyClassifier {
         "asurascans": .asuraScans,
         "mangabat": .mangaBox,
         "komikindoid": .komikIndoID,
-        "nhentai": .nhentai,
     ]
 
     private let coverageBySlug: [String: SourceEngineFamily]
@@ -44,10 +43,6 @@ struct SourceFamilyClassifier {
         "komikindoid": OverrideProfile(
             overrides: ["dateFormat": "MMM d, yyyy"],
             additionalFlags: ["source-komikindoid"]
-        ),
-        "nhentai": OverrideProfile(
-            overrides: ["languagePath": "", "searchIDPrefix": "id:"],
-            additionalFlags: ["source-nhentai"]
         ),
     ]
 
@@ -116,8 +111,6 @@ struct SourceFamilyClassifier {
             family = .asuraScans
         } else if haystack.contains("komikindoid") || haystack.contains("komikindo.ch") {
             family = .komikIndoID
-        } else if haystack.contains("nhentai.net") || haystack.contains("nhentai") {
-            family = .nhentai
         } else if haystack.contains("themesia") || haystack.contains("ainzscans") {
             family = .mangaThemesia
         } else if haystack.contains("zeist") {
@@ -144,7 +137,7 @@ struct SourceFamilyClassifier {
 
     private func supportStatus(for family: SourceEngineFamily) -> SourceSupportStatus {
         switch family {
-        case .natsuId, .madara, .mangaThemesia, .mangaBox, .asuraScans, .komikIndoID, .nhentai:
+        case .natsuId, .madara, .mangaThemesia, .mangaBox, .asuraScans, .komikIndoID:
             return .live
         case .zeistManga, .fmReader, .foolSlide, .newToki, .customParsed, .api:
             return .planned
@@ -289,7 +282,6 @@ struct SourceDescriptorFactory {
         case .mangaBox: return "books.vertical.circle"
         case .asuraScans: return "bolt.horizontal.circle"
         case .komikIndoID: return "text.book.closed.fill"
-        case .nhentai: return "eye.circle"
         case .zeistManga: return "sparkles.rectangle.stack"
         case .fmReader: return "book.pages"
         case .foolSlide: return "doc.text.image"
@@ -538,7 +530,7 @@ final class SourceRepoImporter {
 
     static func capabilities(for family: SourceEngineFamily) -> Set<SourceCapability> {
         switch family {
-        case .natsuId, .madara, .mangaThemesia, .mangaBox, .asuraScans, .komikIndoID, .nhentai, .newToki:
+        case .natsuId, .madara, .mangaThemesia, .mangaBox, .asuraScans, .komikIndoID, .newToki:
             return [.popular, .latest, .search, .mangaDetail, .chapterList, .pageList, .filters, .reader]
         case .zeistManga, .fmReader, .api:
             return [.popular, .latest, .search, .mangaDetail, .chapterList, .pageList, .reader]

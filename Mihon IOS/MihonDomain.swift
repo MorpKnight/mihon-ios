@@ -19,7 +19,6 @@ enum SourceEngineFamily: String, Codable, CaseIterable, Hashable, Identifiable {
     case mangaBox
     case asuraScans
     case komikIndoID
-    case nhentai
     case zeistManga
     case fmReader
     case foolSlide
@@ -40,7 +39,6 @@ enum SourceEngineFamily: String, Codable, CaseIterable, Hashable, Identifiable {
         case .mangaBox: return "MangaBox"
         case .asuraScans: return "Asura Scans"
         case .komikIndoID: return "KomikIndoID"
-        case .nhentai: return "NHentai"
         case .zeistManga: return "ZeistManga"
         case .fmReader: return "FMReader"
         case .foolSlide: return "FoolSlide"
