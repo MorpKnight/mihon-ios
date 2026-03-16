@@ -26,6 +26,7 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
     @Published private(set) var pageCache: [String: [ReaderPage]]
     @Published private(set) var sourceErrors: [String: String]
     @Published private(set) var pageLoadErrors: [String: String]
+    @Published private(set) var diagnosticLogs: [DiagnosticLogEntry]
     @Published private(set) var isAppUnlocked = true
     @Published private(set) var biometricErrorMessage: String?
     @Published var releaseNotesPresented = true
@@ -61,6 +62,7 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
         self.pageCache = [:]
         self.sourceErrors = [:]
         self.pageLoadErrors = [:]
+        self.diagnosticLogs = snapshot.diagnostics
         self.sources = repository.sources()
 
         seedInitialLibraryIfNeeded()
@@ -842,6 +844,7 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
             importRecords = result.records
             importJobsState = result.jobs
         } catch {
+            appendDiagnostic(kind: .app, title: "Local Import Failed", message: error.localizedDescription, metadata: [:])
             bootState = .failed("Failed to import local content: \(error.localizedDescription)")
         }
     }
@@ -869,7 +872,13 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
             "Source repos: \(state.sourceRepos.count)",
             "Page cache: \(pageCache.count)",
             "Chapter cache: \(chapterCache.count)",
+            "Error logs: \(diagnosticLogs.count)",
         ]
+    }
+
+    func clearDiagnostics() {
+        diagnosticLogs.removeAll()
+        persist()
     }
 
     func resetOnboarding() {
@@ -904,6 +913,7 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
 
         guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &authError) else {
             biometricErrorMessage = authError?.localizedDescription ?? "Face ID is not available on this device."
+            appendDiagnostic(kind: .security, title: "Biometric Unavailable", message: biometricErrorMessage ?? "Face ID is not available.", metadata: [:])
             return
         }
 
@@ -918,6 +928,7 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
             }
         } catch {
             biometricErrorMessage = error.localizedDescription
+            appendDiagnostic(kind: .security, title: "Biometric Unlock Failed", message: error.localizedDescription, metadata: [:])
         }
     }
 
@@ -935,9 +946,24 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
 
     private func persist() {
         state.schemaVersion = PersistedState.currentSchemaVersion
-        let snapshot = DatabaseSnapshot(state: state, imports: importRecords, importJobs: importJobsState)
+        let snapshot = DatabaseSnapshot(state: state, imports: importRecords, importJobs: importJobsState, diagnostics: diagnosticLogs)
         databaseCoordinator.saveSnapshot(snapshot)
         legacyStore.save(state)
+    }
+
+    private func appendDiagnostic(kind: DiagnosticLogKind, title: String, message: String, metadata: [String: String]) {
+        diagnosticLogs.insert(
+            DiagnosticLogEntry(
+                id: UUID(),
+                timestamp: .now,
+                kind: kind,
+                title: title,
+                message: message,
+                metadata: metadata
+            ),
+            at: 0
+        )
+        diagnosticLogs = Array(diagnosticLogs.prefix(200))
     }
 
     private func replaceCachedManga(_ manga: Manga, for sourceID: String) {

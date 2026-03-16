@@ -9,8 +9,31 @@ struct DatabaseSnapshot: Codable, Hashable {
     var state: PersistedState
     var imports: [ImportRecord]
     var importJobs: [ImportJob]
+    var diagnostics: [DiagnosticLogEntry]
 
-    static let empty = DatabaseSnapshot(state: .default, imports: [], importJobs: [])
+    static let empty = DatabaseSnapshot(state: .default, imports: [], importJobs: [], diagnostics: [])
+
+    enum CodingKeys: String, CodingKey {
+        case state
+        case imports
+        case importJobs
+        case diagnostics
+    }
+
+    init(state: PersistedState, imports: [ImportRecord], importJobs: [ImportJob], diagnostics: [DiagnosticLogEntry] = []) {
+        self.state = state
+        self.imports = imports
+        self.importJobs = importJobs
+        self.diagnostics = diagnostics
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        state = try container.decodeIfPresent(PersistedState.self, forKey: .state) ?? .default
+        imports = try container.decodeIfPresent([ImportRecord].self, forKey: .imports) ?? []
+        importJobs = try container.decodeIfPresent([ImportJob].self, forKey: .importJobs) ?? []
+        diagnostics = try container.decodeIfPresent([DiagnosticLogEntry].self, forKey: .diagnostics) ?? []
+    }
 }
 
 final class FileDatabaseCoordinator: DatabaseCoordinator {
@@ -48,7 +71,7 @@ final class FileDatabaseCoordinator: DatabaseCoordinator {
 
     func loadSnapshot() -> DatabaseSnapshot {
         guard fileManager.fileExists(atPath: snapshotURL.path) else {
-            let migrated = DatabaseSnapshot(state: migratedState(), imports: [], importJobs: [])
+            let migrated = DatabaseSnapshot(state: migratedState(), imports: [], importJobs: [], diagnostics: [])
             saveSnapshot(migrated)
             return migrated
         }
@@ -57,7 +80,7 @@ final class FileDatabaseCoordinator: DatabaseCoordinator {
             let data = try? Data(contentsOf: snapshotURL),
             let snapshot = try? decoder.decode(DatabaseSnapshot.self, from: data)
         else {
-            return DatabaseSnapshot(state: migratedState(), imports: [], importJobs: [])
+            return DatabaseSnapshot(state: migratedState(), imports: [], importJobs: [], diagnostics: [])
         }
 
         var normalized = snapshot

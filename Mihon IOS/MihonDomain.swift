@@ -443,6 +443,25 @@ struct ReaderSession: Identifiable, Codable, Hashable {
     var updatedAt: Date
 }
 
+enum DiagnosticLogKind: String, Codable, CaseIterable, Hashable, Identifiable {
+    case app
+    case repo
+    case source
+    case reader
+    case security
+
+    var id: String { rawValue }
+}
+
+struct DiagnosticLogEntry: Identifiable, Codable, Hashable {
+    let id: UUID
+    let timestamp: Date
+    let kind: DiagnosticLogKind
+    let title: String
+    let message: String
+    let metadata: [String: String]
+}
+
 enum LibraryRoute: Hashable {
     case mangaDetail(Manga)
     case reader(Manga, Chapter)

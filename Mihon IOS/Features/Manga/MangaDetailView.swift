@@ -32,33 +32,39 @@ struct MangaDetailView: View {
         List {
             Section {
                 VStack(alignment: .leading, spacing: 16) {
-                    MangaCoverView(manga: displayManga, cornerRadius: 28)
-                        .frame(height: 200)
-                        .overlay(alignment: .bottomLeading) {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text(displayManga.title)
-                                    .font(.title2.bold())
-                                    .foregroundStyle(.white)
-                                Text(displayManga.author)
-                                    .font(.subheadline.weight(.medium))
-                                    .foregroundStyle(.white.opacity(0.85))
+                    HStack(alignment: .top, spacing: 16) {
+                        MangaCoverView(manga: displayManga, cornerRadius: 24)
+                            .frame(width: 132, height: 188)
+                            .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                            .onTapGesture {
+                                showCover = true
                             }
-                            .padding(20)
+
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text(displayManga.title)
+                                .font(.title3.weight(.bold))
+                                .foregroundStyle(.primary)
+
+                            Text(displayManga.author)
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(.secondary)
+
+                            Label(displayManga.statusText, systemImage: "dot.radiowaves.left.and.right")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(.secondary)
+
+                            if !displayManga.genres.isEmpty {
+                                Text(displayManga.genres.joined(separator: " • "))
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(3)
+                            }
                         }
-                        .onTapGesture {
-                            showCover = true
-                        }
+                        Spacer(minLength: 0)
+                    }
 
                     Text(displayManga.summary)
                         .font(.body)
-
-                    HStack {
-                        Label(displayManga.statusText, systemImage: "dot.radiowaves.left.and.right")
-                        Spacer()
-                        Text(displayManga.genres.joined(separator: " • "))
-                    }
-                    .font(.footnote.weight(.medium))
-                    .foregroundStyle(.secondary)
                 }
                 .padding(.vertical, 8)
             }

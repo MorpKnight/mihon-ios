@@ -8,19 +8,37 @@ import SwiftUI
 struct SettingsHomeView: View {
     var body: some View {
         List {
-            NavigationLink("Appearance", destination: AppearanceSettingsView())
-            NavigationLink("Library", destination: LibrarySettingsView())
-            NavigationLink("Reader", destination: ReaderSettingsView())
-            NavigationLink("Downloads", destination: DownloadSettingsView())
-            NavigationLink("Tracking", destination: TrackingCenterView())
-            NavigationLink("Browse", destination: BrowseSettingsView())
-            NavigationLink("Data & Storage", destination: DataStorageView())
-            NavigationLink("Security", destination: SecuritySettingsView())
-            NavigationLink("Advanced", destination: AdvancedSettingsView())
-            NavigationLink("Search Settings", destination: SettingsSearchView())
-            NavigationLink("About", destination: AboutView())
+            Section("Core") {
+                settingsLink("Appearance", systemImage: "sun.max", destination: AppearanceSettingsView())
+                settingsLink("Library", systemImage: "books.vertical", destination: LibrarySettingsView())
+                settingsLink("Reader", systemImage: "book.pages", destination: ReaderSettingsView())
+                settingsLink("Downloads", systemImage: "arrow.down.circle", destination: DownloadSettingsView())
+                settingsLink("Browse", systemImage: "globe", destination: BrowseSettingsView())
+            }
+
+            Section("Privacy & Data") {
+                settingsLink("Security", systemImage: "faceid", destination: SecuritySettingsView())
+                settingsLink("Data & Storage", systemImage: "externaldrive", destination: DataStorageView())
+                settingsLink("Tracking", systemImage: "person.badge.clock", destination: TrackingCenterView())
+            }
+
+            Section("Support") {
+                settingsLink("Advanced", systemImage: "wrench.and.screwdriver", destination: AdvancedSettingsView())
+                settingsLink("Search Settings", systemImage: "magnifyingglass", destination: SettingsSearchView())
+                settingsLink("About", systemImage: "info.circle", destination: AboutView())
+            }
         }
+        .listStyle(.insetGrouped)
         .navigationTitle("Settings")
+    }
+
+    @ViewBuilder
+    private func settingsLink<Destination: View>(_ title: String, systemImage: String, destination: Destination) -> some View {
+        NavigationLink {
+            destination
+        } label: {
+            Label(title, systemImage: systemImage)
+        }
     }
 }
 
@@ -270,6 +288,8 @@ struct AdvancedSettingsView: View {
                     set: model.setShowDiagnostics
                 ))
 
+                NavigationLink("Open Error Logs", destination: DiagnosticsLogView())
+
                 if model.state.advancedPreferences.showDiagnostics {
                     ForEach(model.diagnosticsSummary(), id: \.self) { line in
                         Text(line)
@@ -285,6 +305,68 @@ struct AdvancedSettingsView: View {
             }
         }
         .navigationTitle("Advanced")
+    }
+}
+
+struct DiagnosticsLogView: View {
+    @EnvironmentObject private var model: AppModel
+
+    var body: some View {
+        List {
+            Section("Summary") {
+                ForEach(model.diagnosticsSummary(), id: \.self) { line in
+                    Text(line)
+                        .font(.footnote.monospaced())
+                }
+
+                Button("Clear Logs", role: .destructive) {
+                    model.clearDiagnostics()
+                }
+                .disabled(model.diagnosticLogs.isEmpty)
+            }
+
+            Section("Entries") {
+                if model.diagnosticLogs.isEmpty {
+                    ContentUnavailableView(
+                        "No Error Logs",
+                        systemImage: "checkmark.circle",
+                        description: Text("New source, reader, repo, and security failures will appear here.")
+                    )
+                } else {
+                    ForEach(model.diagnosticLogs) { entry in
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text(entry.title)
+                                    .font(.headline)
+                                Spacer()
+                                Text(entry.kind.rawValue.uppercased())
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Text(entry.message)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+
+                            if !entry.metadata.isEmpty {
+                                ForEach(entry.metadata.keys.sorted(), id: \.self) { key in
+                                    if let value = entry.metadata[key] {
+                                        LabeledContent(key, value: value)
+                                            .font(.caption.monospaced())
+                                    }
+                                }
+                            }
+
+                            Text(entry.timestamp.formatted(date: .abbreviated, time: .standard))
+                                .font(.caption.monospaced())
+                                .foregroundStyle(.tertiary)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+            }
+        }
+        .navigationTitle("Error Logs")
     }
 }
 
