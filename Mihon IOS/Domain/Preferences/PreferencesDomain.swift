@@ -104,6 +104,24 @@ struct AdvancedPreferences: Codable, Hashable {
     var historyLimit: Int
     var showDiagnostics: Bool
     var aggressiveImageRetry: Bool
+    var memoryCacheLimitMB: Int
+    var imageCacheCountLimit: Int
+
+    init(
+        imagePrefetchCount: Int = 2,
+        historyLimit: Int = 100,
+        showDiagnostics: Bool = false,
+        aggressiveImageRetry: Bool = false,
+        memoryCacheLimitMB: Int = 80,
+        imageCacheCountLimit: Int = 100
+    ) {
+        self.imagePrefetchCount = imagePrefetchCount
+        self.historyLimit = historyLimit
+        self.showDiagnostics = showDiagnostics
+        self.aggressiveImageRetry = aggressiveImageRetry
+        self.memoryCacheLimitMB = memoryCacheLimitMB
+        self.imageCacheCountLimit = imageCacheCountLimit
+    }
 }
 
 struct AppPreferences: Hashable {

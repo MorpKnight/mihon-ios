@@ -67,7 +67,7 @@ enum SourceEngineUtilities {
 
     static let defaultUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1 Mihon-iOS/1.0"
     static let sharedURLCache = URLCache(
-        memoryCapacity: 48 * 1_024 * 1_024,
+        memoryCapacity: 20 * 1_024 * 1_024,
         diskCapacity: 160 * 1_024 * 1_024
     )
 

@@ -193,5 +193,31 @@ extension AppModel {
         state.advancedPreferences.aggressiveImageRetry = enabled
         persist()
     }
+
+    func setMemoryCacheLimitMB(_ mb: Int) {
+        state.advancedPreferences.memoryCacheLimitMB = min(max(mb, 20), 200)
+        persist()
+        Task { await applyCacheConfiguration() }
+    }
+
+    func setImageCacheCountLimit(_ count: Int) {
+        state.advancedPreferences.imageCacheCountLimit = min(max(count, 40), 200)
+        persist()
+        Task { await applyCacheConfiguration() }
+    }
+
+    func applyCacheConfiguration() async {
+        let prefs = state.advancedPreferences
+        let config = CacheConfiguration(
+            imageCountLimit: prefs.imageCacheCountLimit,
+            imageBytesLimit: prefs.memoryCacheLimitMB * 1_024 * 1_024,
+            dataCountLimit: CacheConfiguration.default.dataCountLimit,
+            dataBytesLimit: CacheConfiguration.default.dataBytesLimit,
+            diskImageBytesLimit: CacheConfiguration.default.diskImageBytesLimit,
+            diskMetadataBytesLimit: CacheConfiguration.default.diskMetadataBytesLimit,
+            diskNetworkBytesLimit: CacheConfiguration.default.diskNetworkBytesLimit
+        )
+        await cacheController.reconfigure(config)
+    }
 }
 

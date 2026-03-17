@@ -6,6 +6,7 @@
 import Combine
 import Foundation
 import SwiftUI
+import UIKit
 
 enum BootState: Equatable {
     case launching
@@ -118,7 +119,19 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
         }
 
         bootState = .ready
+        Task { await applyCacheConfiguration() }
         Task { await refreshCacheStats() }
+
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.didReceiveMemoryWarningNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            Task { @MainActor in
+                self.respondToMemoryPressure()
+            }
+        }
     }
 
     var preferredColorScheme: ColorScheme? {

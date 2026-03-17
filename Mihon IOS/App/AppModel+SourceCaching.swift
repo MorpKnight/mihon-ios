@@ -47,6 +47,7 @@ extension AppModel {
             sourceMangaCache[source.id] = items
             sourceErrors[source.id] = nil
             appendDiagnostic(kind: .cache, title: "Source Feed Cached", message: "Stored \(items.count) items.", metadata: ["source": source.name, "mode": mode.rawValue])
+            trimSourceCachesIfNeeded()
             await refreshCacheStats()
             persist()
         } catch {
@@ -96,6 +97,7 @@ extension AppModel {
             let merged = mergeDownloadedChapters(existing: chapterCache[manga.id] ?? [], incoming: details.chapters)
             chapterCache[manga.id] = merged
             sourceErrors[manga.sourceID] = nil
+            trimSourceCachesIfNeeded()
             await refreshCacheStats()
             persist()
             return merged
@@ -121,6 +123,7 @@ extension AppModel {
             if let warning = details.errorMessage, !warning.isEmpty {
                 appendDiagnostic(kind: .reader, title: "Page Load Warning", message: warning, metadata: ["sourceID": sourceID, "chapterID": chapter.id])
             }
+            trimSourceCachesIfNeeded()
             await refreshCacheStats()
             return details.pages
         } catch {
@@ -163,6 +166,44 @@ extension AppModel {
                 isDownloaded: cached.isDownloaded,
                 pages: cached.pages.isEmpty ? chapter.pages : cached.pages
             )
+        }
+    }
+
+    // MARK: - Source Cache Eviction
+
+    /// Maximum number of source feed entries to keep in memory at a time.
+    private static let maxSourceMangaCacheEntries = 30
+    /// Maximum number of chapter lists to keep in memory at a time.
+    private static let maxChapterCacheEntries = 50
+    /// Maximum number of page lists (per chapter) to keep in memory at a time.
+    private static let maxPageCacheEntries = 40
+
+    func trimSourceCachesIfNeeded() {
+        if sourceMangaCache.count > Self.maxSourceMangaCacheEntries {
+            let excess = sourceMangaCache.count - Self.maxSourceMangaCacheEntries
+            let keysToRemove = Array(sourceMangaCache.keys.prefix(excess))
+            for key in keysToRemove {
+                sourceMangaCache[key] = nil
+            }
+        }
+
+        if chapterCache.count > Self.maxChapterCacheEntries {
+            // Keep chapters that are for library entries or have downloads
+            let libraryMangaIDs = Set(state.library.map(\.mangaID))
+            let nonLibraryKeys = chapterCache.keys.filter { !libraryMangaIDs.contains($0) }
+            let excess = chapterCache.count - Self.maxChapterCacheEntries
+            let keysToRemove = Array(nonLibraryKeys.prefix(excess))
+            for key in keysToRemove {
+                chapterCache[key] = nil
+            }
+        }
+
+        if pageCache.count > Self.maxPageCacheEntries {
+            let excess = pageCache.count - Self.maxPageCacheEntries
+            let keysToRemove = Array(pageCache.keys.prefix(excess))
+            for key in keysToRemove {
+                pageCache[key] = nil
+            }
         }
     }
 }

@@ -84,7 +84,9 @@ struct PersistedState: Codable, Hashable {
             imagePrefetchCount: 2,
             historyLimit: 80,
             showDiagnostics: false,
-            aggressiveImageRetry: true
+            aggressiveImageRetry: true,
+            memoryCacheLimitMB: 80,
+            imageCacheCountLimit: 100
         ),
         trackers: [],
         mangaNotes: [:],

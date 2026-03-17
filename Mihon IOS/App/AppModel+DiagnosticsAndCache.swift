@@ -59,6 +59,46 @@ extension AppModel {
         await refreshCacheStats()
     }
 
+    func respondToMemoryPressure() {
+        // Trim AppModel in-memory dictionaries by keeping only the most essential entries
+        let pageCacheLimit = max(pageCache.count / 2, 5)
+        if pageCache.count > pageCacheLimit {
+            let keysToRemove = Array(pageCache.keys.dropFirst(pageCacheLimit))
+            for key in keysToRemove {
+                pageCache[key] = nil
+            }
+        }
+
+        let sourceMangaLimit = max(sourceMangaCache.count / 2, 3)
+        if sourceMangaCache.count > sourceMangaLimit {
+            let keysToRemove = Array(sourceMangaCache.keys.dropFirst(sourceMangaLimit))
+            for key in keysToRemove {
+                sourceMangaCache[key] = nil
+            }
+        }
+
+        let chapterCacheLimit = max(chapterCache.count / 2, 5)
+        if chapterCache.count > chapterCacheLimit {
+            let keysToRemove = Array(chapterCache.keys.dropFirst(chapterCacheLimit))
+            for key in keysToRemove {
+                chapterCache[key] = nil
+            }
+        }
+
+        sourceGenreCache.removeAll()
+
+        Task {
+            await cacheController.trimMemory(fraction: 0.5)
+            await refreshCacheStats()
+        }
+
+        appendDiagnostic(kind: .cache, title: "Memory Pressure Response", message: "Trimmed in-memory caches by 50%.", metadata: [
+            "pageCache": "\(pageCache.count)",
+            "sourceMangaCache": "\(sourceMangaCache.count)",
+            "chapterCache": "\(chapterCache.count)",
+        ])
+    }
+
     private func formatBytes(_ bytes: Int) -> String {
         ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
     }
