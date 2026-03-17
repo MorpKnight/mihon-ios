@@ -48,18 +48,6 @@ struct InternalSourceRepository: SourceRepository {
             isPinned: false,
             allowsAdultContent: false
         )
-        let asura = Source(
-            id: "asura-en",
-            name: "Asura Scans",
-            kind: .remote,
-            engineFamily: .api,
-            summary: "English manhwa source powered by a Natsu-like runtime.",
-            systemImage: "text.book.closed",
-            language: .english,
-            isEnabled: true,
-            isPinned: false,
-            allowsAdultContent: false
-        )
 
 
         let madara = Source(
