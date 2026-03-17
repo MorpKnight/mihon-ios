@@ -16,10 +16,15 @@ private enum AppTab: Hashable {
 struct RootTabView: View {
     @EnvironmentObject private var model: AppModel
     @State private var selectedTab: AppTab = .library
+    @State private var libraryPath = NavigationPath()
+    @State private var browsePath = NavigationPath()
+    @State private var historyPath = NavigationPath()
+    @State private var updatesPath = NavigationPath()
+    @State private var morePath = NavigationPath()
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            NavigationStack {
+            NavigationStack(path: $libraryPath) {
                 LibraryView()
             }
             .tabItem {
@@ -27,7 +32,7 @@ struct RootTabView: View {
             }
             .tag(AppTab.library)
 
-            NavigationStack {
+            NavigationStack(path: $browsePath) {
                 BrowseView()
             }
             .tabItem {
@@ -35,7 +40,7 @@ struct RootTabView: View {
             }
             .tag(AppTab.browse)
 
-            NavigationStack {
+            NavigationStack(path: $historyPath) {
                 HistoryView()
             }
             .tabItem {
@@ -43,16 +48,16 @@ struct RootTabView: View {
             }
             .tag(AppTab.history)
 
-            NavigationStack {
+            NavigationStack(path: $updatesPath) {
                 UpdatesView()
             }
             .tabItem {
                 Label("Updates", systemImage: "sparkles.rectangle.stack")
             }
-            .badge(model.updateFeed.count > 0 ? model.updateFeed.count : 0)
+            .badge(model.unreadUpdatesCount > 0 ? model.unreadUpdatesCount : 0)
             .tag(AppTab.updates)
 
-            NavigationStack {
+            NavigationStack(path: $morePath) {
                 MoreView()
             }
             .tabItem {
@@ -63,8 +68,31 @@ struct RootTabView: View {
         .tint(model.chromeTint)
         .toolbarBackground(.ultraThinMaterial, for: .tabBar)
         .toolbarBackground(.visible, for: .tabBar)
+        .background(
+            TabBarControllerAccessor { index in
+                handleTabReselect(index: index)
+            }
+        )
         .onChange(of: selectedTab) { _ in
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        }
+    }
+
+    private func handleTabReselect(index: Int) {
+        // The order matches the TabView items above.
+        switch index {
+        case 0:
+            libraryPath = NavigationPath()
+        case 1:
+            browsePath = NavigationPath()
+        case 2:
+            historyPath = NavigationPath()
+        case 3:
+            updatesPath = NavigationPath()
+        case 4:
+            morePath = NavigationPath()
+        default:
+            break
         }
     }
 }

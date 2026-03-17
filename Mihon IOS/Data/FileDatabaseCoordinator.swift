@@ -126,9 +126,14 @@ final class FileDatabaseCoordinator: DatabaseCoordinator {
     private func ensureDirectories() {
         try? fileManager.createDirectory(at: databaseDirectoryURL, withIntermediateDirectories: true, attributes: nil)
         try? fileManager.createDirectory(at: importsDirectoryURL, withIntermediateDirectories: true, attributes: nil)
+        try? fileManager.createDirectory(at: downloadsDirectoryURL, withIntermediateDirectories: true, attributes: nil)
     }
 
     var importsDirectoryURL: URL {
         databaseDirectoryURL.appendingPathComponent("Imports", isDirectory: true)
+    }
+
+    var downloadsDirectoryURL: URL {
+        databaseDirectoryURL.appendingPathComponent("Downloads", isDirectory: true)
     }
 }

@@ -54,5 +54,24 @@ struct UpdatesView: View {
         }
         .searchable(text: $searchText, prompt: "Search updates")
         .navigationTitle("Updates")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Mark All Read") {
+                    model.markAllUpdatesSeen()
+                }
+            }
+        }
+        .onAppear {
+            let items = model.updateFeed(searchText: searchText, downloadedOnly: downloadedOnly)
+            model.markUpdatesSeen(items)
+        }
+        .onChange(of: searchText) { _, _ in
+            let items = model.updateFeed(searchText: searchText, downloadedOnly: downloadedOnly)
+            model.markUpdatesSeen(items)
+        }
+        .onChange(of: downloadedOnly) { _, _ in
+            let items = model.updateFeed(searchText: searchText, downloadedOnly: downloadedOnly)
+            model.markUpdatesSeen(items)
+        }
     }
 }

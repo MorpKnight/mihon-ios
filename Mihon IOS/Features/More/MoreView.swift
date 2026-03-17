@@ -24,9 +24,9 @@ struct MoreView: View {
 
             Section("Tools") {
                 NavigationLink {
-                    DownloadQueueView()
+                    DownloadsView()
                 } label: {
-                    Label("Download Queue", systemImage: "arrow.down.circle")
+                    Label("Downloads", systemImage: "arrow.down.circle")
                 }
 
                 NavigationLink {
