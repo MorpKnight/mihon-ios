@@ -279,6 +279,31 @@ struct AdvancedSettingsView: View {
                 ))
             }
 
+            Section("Cache Limits") {
+                Stepper(
+                    "Memory cache: \(model.state.advancedPreferences.memoryCacheLimitMB) MB",
+                    value: Binding(
+                        get: { model.state.advancedPreferences.memoryCacheLimitMB },
+                        set: model.setMemoryCacheLimitMB
+                    ),
+                    in: 20...200,
+                    step: 20
+                )
+
+                Stepper(
+                    "Image count limit: \(model.state.advancedPreferences.imageCacheCountLimit)",
+                    value: Binding(
+                        get: { model.state.advancedPreferences.imageCacheCountLimit },
+                        set: model.setImageCacheCountLimit
+                    ),
+                    in: 40...200,
+                    step: 20
+                )
+
+                LabeledContent("In-memory images", value: "\(model.cacheStats.memoryImageCount)")
+                LabeledContent("In-memory data", value: "\(model.cacheStats.memoryDataCount)")
+            }
+
             Section("History") {
                 Stepper(
                     "History limit: \(model.state.advancedPreferences.historyLimit)",

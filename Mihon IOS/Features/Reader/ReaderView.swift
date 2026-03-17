@@ -743,8 +743,10 @@ private struct ReaderPageSurface: View {
 
     @ViewBuilder
     private var content: some View {
-        if page.assetKind == .image, let url = model.fileURL(for: page), let image = UIImage(contentsOfFile: url.path) {
-            zoomableImage(Image(uiImage: image).resizable())
+        if page.assetKind == .image, let fileURL = model.fileURL(for: page) {
+            CachedLocalImageView(fileURL: fileURL) { image in
+                zoomableImage(image.resizable())
+            }
         } else if page.assetKind == .image, let remoteURL = page.remoteURL, let url = URL(string: remoteURL) {
             ReaderRemoteImageView(
                 url: url,
@@ -890,6 +892,7 @@ actor ReaderImagePipeline {
 
     private let cache: AppCacheManaging = AppCacheController.shared
     private var inFlight: [URL: Task<UIImage, Error>] = [:]
+    private var prefetchTasks: [Task<Void, Never>] = []
 
     func image(for url: URL, forceRefresh: Bool) async throws -> UIImage {
         if !forceRefresh, let task = inFlight[url] {
@@ -926,24 +929,74 @@ actor ReaderImagePipeline {
     }
 
     func prefetch(_ urls: [URL], chapterID: String) async {
-        _ = chapterID
+        cancelPrefetchTasks()
         for url in urls {
-            if Task.isCancelled {
-                return
-            }
-            if inFlight[url] != nil {
-                continue
-            }
-            Task {
+            if Task.isCancelled { return }
+            if inFlight[url] != nil { continue }
+            let task = Task<Void, Never> {
                 guard !Task.isCancelled else { return }
                 _ = try? await image(for: url, forceRefresh: false)
             }
+            prefetchTasks.append(task)
         }
     }
 
     func clear() async {
+        cancelPrefetchTasks()
+        for (_, task) in inFlight {
+            task.cancel()
+        }
         inFlight.removeAll()
         await cache.clear(.image)
+    }
+
+    private func cancelPrefetchTasks() {
+        for task in prefetchTasks {
+            task.cancel()
+        }
+        prefetchTasks.removeAll()
+    }
+}
+
+private struct CachedLocalImageView<Content: View>: View {
+    let fileURL: URL
+    @ViewBuilder let content: (Image) -> Content
+
+    @State private var uiImage: UIImage?
+
+    var body: some View {
+        Group {
+            if let uiImage {
+                content(Image(uiImage: uiImage))
+            } else {
+                Rectangle()
+                    .fill(.clear)
+                    .task(id: fileURL) {
+                        await loadFromCache()
+                    }
+            }
+        }
+    }
+
+    @MainActor
+    private func loadFromCache() async {
+        let key = "local-image|\(fileURL.path)"
+        do {
+            let image = try await AppCacheController.shared.image(
+                for: fileURL,
+                key: key,
+                policy: .memoryOnly
+            ) {
+                guard let data = try? Data(contentsOf: fileURL) else {
+                    throw URLError(.cannotOpenFile)
+                }
+                return data
+            }
+            uiImage = image
+        } catch {
+            // Fall back to direct load if cache fails
+            uiImage = UIImage(contentsOfFile: fileURL.path)
+        }
     }
 }
 

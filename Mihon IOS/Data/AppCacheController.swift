@@ -30,7 +30,6 @@ struct CacheEntryMetadata: Codable, Hashable {
     let expirationDate: Date?
     let byteCount: Int
     let createdAt: Date
-    let lastAccessedAt: Date
 }
 
 struct CacheStats: Hashable {
@@ -49,6 +48,8 @@ protocol AppCacheManaging {
     func value<T: Codable>(for key: String, domain: CacheDomain, policy: CachePolicy, ttl: TimeInterval?, loader: @escaping @Sendable () async throws -> T) async throws -> T
     func clear(_ domain: CacheDomain) async
     func stats() async -> CacheStats
+    func reconfigure(_ config: CacheConfiguration) async
+    func trimMemory(fraction: Double) async
 }
 
 private struct DiskCacheEnvelope: Codable {
@@ -61,30 +62,46 @@ actor AppCacheController: AppCacheManaging {
 
     private let fileManager: FileManager
     private let baseDirectory: URL
-    private let memoryImageCache = NSCache<NSString, UIImage>()
-    private let memoryDataCache = NSCache<NSString, NSData>()
+    private let memoryImageCache: LRUMemoryCache<String, UIImage>
+    private let memoryDataCache: LRUMemoryCache<String, NSData>
     private var inFlightData: [String: Task<Data, Error>] = [:]
-    private var imageMemoryKeys = Set<String>()
-    private var dataMemoryKeys = Set<String>()
     private var dataMemoryKeysByDomain: [CacheDomain: Set<String>] = [:]
     private var hitCount = 0
     private var missCount = 0
+    private var config: CacheConfiguration
 
-    init(fileManager: FileManager = .default) {
+    init(fileManager: FileManager = .default, configuration: CacheConfiguration = .default) {
         self.fileManager = fileManager
+        self.config = configuration
         let root = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first
             ?? URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
         self.baseDirectory = root.appendingPathComponent("MihonCache", isDirectory: true)
-        memoryImageCache.countLimit = 120
-        memoryImageCache.totalCostLimit = 96 * 1_024 * 1_024
-        memoryDataCache.countLimit = 256
-        memoryDataCache.totalCostLimit = 48 * 1_024 * 1_024
+        self.memoryImageCache = LRUMemoryCache(
+            countLimit: configuration.imageCountLimit,
+            totalCostLimit: configuration.imageBytesLimit
+        )
+        self.memoryDataCache = LRUMemoryCache(
+            countLimit: configuration.dataCountLimit,
+            totalCostLimit: configuration.dataBytesLimit
+        )
         createDirectoriesIfNeeded()
     }
 
+    func reconfigure(_ newConfig: CacheConfiguration) {
+        config = newConfig
+        memoryImageCache.countLimit = newConfig.imageCountLimit
+        memoryImageCache.totalCostLimit = newConfig.imageBytesLimit
+        memoryDataCache.countLimit = newConfig.dataCountLimit
+        memoryDataCache.totalCostLimit = newConfig.dataBytesLimit
+    }
+
+    func trimMemory(fraction: Double) {
+        memoryImageCache.trimToFraction(fraction)
+        memoryDataCache.trimToFraction(fraction)
+    }
+
     func image(for url: URL, key: String, policy: CachePolicy, loader: @escaping @Sendable () async throws -> Data) async throws -> UIImage {
-        let cacheKey = key as NSString
-        if policy != .reloadIgnoringCache, let cached = memoryImageCache.object(forKey: cacheKey) {
+        if policy != .reloadIgnoringCache, let cached = memoryImageCache.object(forKey: key) {
             hitCount += 1
             return cached
         }
@@ -94,16 +111,14 @@ actor AppCacheController: AppCacheManaging {
             throw URLError(.cannotDecodeContentData)
         }
 
-        memoryImageCache.setObject(image, forKey: cacheKey, cost: imageData.count)
-        imageMemoryKeys.insert(key)
+        memoryImageCache.setObject(image, forKey: key, cost: imageData.count)
         return image
     }
 
     func data(for key: String, domain: CacheDomain, policy: CachePolicy, ttl: TimeInterval?, loader: @escaping @Sendable () async throws -> Data) async throws -> Data {
         let cacheKey = namespacedKey(key, domain: domain)
-        let memoryKey = cacheKey as NSString
 
-        if policy != .reloadIgnoringCache, let cached = memoryDataCache.object(forKey: memoryKey) {
+        if policy != .reloadIgnoringCache, let cached = memoryDataCache.object(forKey: cacheKey) {
             hitCount += 1
             return cached as Data
         }
@@ -111,9 +126,8 @@ actor AppCacheController: AppCacheManaging {
         if policy != .memoryOnly, let diskValue = try? loadDiskEntry(for: cacheKey, domain: domain) {
             if !isExpired(diskValue.metadata.expirationDate) {
                 hitCount += 1
-                memoryDataCache.setObject(diskValue.payload as NSData, forKey: memoryKey, cost: diskValue.payload.count)
+                memoryDataCache.setObject(diskValue.payload as NSData, forKey: cacheKey, cost: diskValue.payload.count)
                 trackDataMemoryKey(cacheKey, domain: domain)
-                try? touchDiskEntry(for: cacheKey, domain: domain, envelope: diskValue)
                 return diskValue.payload
             }
             try? removeDiskEntry(for: cacheKey, domain: domain)
@@ -132,7 +146,7 @@ actor AppCacheController: AppCacheManaging {
 
         do {
             let payload = try await task.value
-            memoryDataCache.setObject(payload as NSData, forKey: memoryKey, cost: payload.count)
+            memoryDataCache.setObject(payload as NSData, forKey: cacheKey, cost: payload.count)
             trackDataMemoryKey(cacheKey, domain: domain)
             if policy != .memoryOnly {
                 try storeDiskEntry(payload: payload, for: cacheKey, domain: domain, ttl: ttl)
@@ -157,16 +171,13 @@ actor AppCacheController: AppCacheManaging {
     func clear(_ domain: CacheDomain) async {
         if domain == .all || domain == .image {
             memoryImageCache.removeAllObjects()
-            imageMemoryKeys.removeAll()
         }
         if domain == .all {
             memoryDataCache.removeAllObjects()
-            dataMemoryKeys.removeAll()
             dataMemoryKeysByDomain.removeAll()
         } else if let keys = dataMemoryKeysByDomain[domain] {
             for key in keys {
-                memoryDataCache.removeObject(forKey: key as NSString)
-                dataMemoryKeys.remove(key)
+                memoryDataCache.removeObject(forKey: key)
             }
             dataMemoryKeysByDomain[domain] = Set<String>()
         }
@@ -180,8 +191,8 @@ actor AppCacheController: AppCacheManaging {
 
     func stats() async -> CacheStats {
         CacheStats(
-            memoryImageCount: imageMemoryKeys.count,
-            memoryDataCount: dataMemoryKeys.count,
+            memoryImageCount: memoryImageCache.count,
+            memoryDataCount: memoryDataCache.count,
             diskImageBytes: diskUsage(for: .image),
             diskMetadataBytes: diskUsage(for: .sourceMetadata),
             diskNetworkBytes: diskUsage(for: .networkResponse),
@@ -202,7 +213,6 @@ actor AppCacheController: AppCacheManaging {
     }
 
     private func trackDataMemoryKey(_ key: String, domain: CacheDomain) {
-        dataMemoryKeys.insert(key)
         dataMemoryKeysByDomain[domain, default: []].insert(key)
     }
 
@@ -221,23 +231,6 @@ actor AppCacheController: AppCacheManaging {
         return try JSONDecoder().decode(DiskCacheEnvelope.self, from: data)
     }
 
-    private func touchDiskEntry(for key: String, domain: CacheDomain, envelope: DiskCacheEnvelope) throws {
-        let refreshed = DiskCacheEnvelope(
-            metadata: CacheEntryMetadata(
-                key: envelope.metadata.key,
-                domain: envelope.metadata.domain,
-                expirationDate: envelope.metadata.expirationDate,
-                byteCount: envelope.metadata.byteCount,
-                createdAt: envelope.metadata.createdAt,
-                lastAccessedAt: .now
-            ),
-            payload: envelope.payload
-        )
-        let url = fileURL(for: key, domain: domain)
-        let data = try JSONEncoder().encode(refreshed)
-        try data.write(to: url, options: .atomic)
-    }
-
     private func storeDiskEntry(payload: Data, for key: String, domain: CacheDomain, ttl: TimeInterval?) throws {
         let url = fileURL(for: key, domain: domain)
         let envelope = DiskCacheEnvelope(
@@ -246,8 +239,7 @@ actor AppCacheController: AppCacheManaging {
                 domain: domain,
                 expirationDate: ttl.map { Date().addingTimeInterval($0) },
                 byteCount: payload.count,
-                createdAt: .now,
-                lastAccessedAt: .now
+                createdAt: .now
             ),
             payload: payload
         )
@@ -266,11 +258,11 @@ actor AppCacheController: AppCacheManaging {
         let maxBytes: Int
         switch domain {
         case .image:
-            maxBytes = 256 * 1_024 * 1_024
+            maxBytes = config.diskImageBytesLimit
         case .sourceMetadata:
-            maxBytes = 32 * 1_024 * 1_024
+            maxBytes = config.diskMetadataBytesLimit
         case .networkResponse:
-            maxBytes = 96 * 1_024 * 1_024
+            maxBytes = config.diskNetworkBytesLimit
         case .all:
             return
         }
