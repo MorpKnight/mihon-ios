@@ -85,16 +85,16 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
                 )
             }
             : snapshot.repoRecords
-        self.repository = repository ?? RuntimeSourceRepository(repoRecords: hydratedRepoRecords)
+        self.repository = repository ?? RuntimeSourceRepository(repoRecords: hydratedRepoRecords, cache: cacheController)
         var persistedState = snapshot.state
         persistedState.sourceRepos = hydratedRepoRecords.map(\.url)
         self.state = persistedState
         self.importRecords = snapshot.imports
         self.importJobsState = snapshot.importJobs
         self.repoRecords = hydratedRepoRecords
-        self.sourceMangaCache = [:]
+        self.sourceMangaCache = snapshot.cachedManga
         self.sourceGenreCache = [:]
-        self.chapterCache = [:]
+        self.chapterCache = snapshot.cachedChapters
         self.pageCache = [:]
         self.sourceErrors = [:]
         self.pageLoadErrors = [:]
@@ -311,12 +311,21 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
                 ),
                 at: 0
             )
-            // Persist core model so it survives a restart/cache wipe
             if !state.persistedMangas.contains(where: { $0.id == manga.id }) {
                 state.persistedMangas.append(manga)
             }
+            ensureMangaCached(manga)
         }
         persist()
+    }
+
+    private func ensureMangaCached(_ manga: Manga) {
+        guard manga.sourceID != "local-files" else { return }
+        var items = sourceMangaCache[manga.sourceID] ?? []
+        if !items.contains(where: { $0.id == manga.id }) {
+            items.append(manga)
+            sourceMangaCache[manga.sourceID] = items
+        }
     }
 
     func assignCategory(_ categoryID: String, to manga: Manga) {
@@ -948,6 +957,7 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
             sourceErrors[source.id] = nil
             appendDiagnostic(kind: .cache, title: "Source Feed Cached", message: "Stored \(items.count) items.", metadata: ["source": source.name, "mode": mode.rawValue])
             await refreshCacheStats()
+            persist()
         } catch {
             sourceErrors[source.id] = error.localizedDescription
             appendDiagnostic(kind: .source, title: "Source Feed Failed", message: error.localizedDescription, metadata: ["source": source.name, "mode": mode.rawValue])
@@ -976,6 +986,7 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
             replaceCachedManga(details.manga, for: manga.sourceID)
             sourceErrors[manga.sourceID] = nil
             await refreshCacheStats()
+            persist()
             return details.manga
         } catch {
             sourceErrors[manga.sourceID] = error.localizedDescription
@@ -994,6 +1005,7 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
             chapterCache[manga.id] = details.chapters
             sourceErrors[manga.sourceID] = nil
             await refreshCacheStats()
+            persist()
             return details.chapters
         } catch {
             sourceErrors[manga.sourceID] = error.localizedDescription
@@ -1173,13 +1185,21 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
     private func persist() {
         state.schemaVersion = PersistedState.currentSchemaVersion
         state.sourceRepos = repoRecords.map(\.url)
-        let snapshot = DatabaseSnapshot(state: state, imports: importRecords, importJobs: importJobsState, repoRecords: repoRecords, diagnostics: diagnosticLogs)
+        let snapshot = DatabaseSnapshot(
+            state: state,
+            imports: importRecords,
+            importJobs: importJobsState,
+            repoRecords: repoRecords,
+            diagnostics: diagnosticLogs,
+            cachedManga: sourceMangaCache,
+            cachedChapters: chapterCache
+        )
         databaseCoordinator.saveSnapshot(snapshot)
         legacyStore.save(state)
     }
 
     private func rebuildSourceRepository() {
-        repository = RuntimeSourceRepository(repoRecords: repoRecords)
+        repository = RuntimeSourceRepository(repoRecords: repoRecords, cache: cacheController)
         sources = repository.sources()
     }
 

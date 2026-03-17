@@ -121,16 +121,18 @@ final class AsuraHTMLSourceEngine: SourceRuntime {
             }
         }
         
-        // Build a map of cover URLs: find all thumb-small.webp image URLs
-        // and associate them with nearby slugs by looking at their position in the HTML
+        // Build a list of cover URLs with their positions in the HTML
         let coverPattern = #"https://gg\.asuracomic\.net/storage/media/\d+/conversions/[^"\\]+thumb-small\.webp"#
         let coverRegex = try? NSRegularExpression(pattern: coverPattern, options: [])
         let coverMatches = coverRegex?.matches(in: html, range: htmlRange) ?? []
-        var coverURLs: [String] = []
+        var coverEntries: [(url: String, location: Int)] = []
+        var seenCoverURLs = Set<String>()
         for match in coverMatches {
             guard let range = Range(match.range, in: html) else { continue }
             let url = String(html[range])
-            coverURLs.append(url)
+            if seenCoverURLs.insert(url).inserted {
+                coverEntries.append((url: url, location: match.range.location))
+            }
         }
         
         // Extract titles: look for text patterns near series slugs
@@ -151,27 +153,37 @@ final class AsuraHTMLSourceEngine: SourceRuntime {
             allTitles.append((title: title, location: match.range.location))
         }
         
-        // For each slug, find the nearest title that appears before it
-        // and the cover URL at the corresponding index
+        // For each slug, find the nearest title and cover by position in the HTML
         var items: [Manga] = []
-        for (index, slug) in slugs.enumerated() {
+        for slug in slugs {
             // Find slug position in HTML
             let slugSearchStr = "series/\(slug)"
             let slugLocation = (html as NSString).range(of: slugSearchStr).location
+            guard slugLocation != NSNotFound else { continue }
             
-            // Find the nearest title before this slug position
+            // Find the nearest title to this slug position
             var bestTitle: String?
-            var bestDistance = Int.max
+            var bestTitleDistance = Int.max
             for (title, loc) in allTitles {
                 let distance = abs(slugLocation - loc)
-                if distance < bestDistance {
-                    bestDistance = distance
+                if distance < bestTitleDistance {
+                    bestTitleDistance = distance
                     bestTitle = title
                 }
             }
             
+            // Find the nearest cover to this slug position
+            var bestCoverURL: String?
+            var bestCoverDistance = Int.max
+            for (url, loc) in coverEntries {
+                let distance = abs(slugLocation - loc)
+                if distance < bestCoverDistance {
+                    bestCoverDistance = distance
+                    bestCoverURL = url
+                }
+            }
+            
             let title = bestTitle ?? SourceEngineUtilities.titleFromSlug(slug)
-            let coverURL = index < coverURLs.count ? coverURLs[index] : nil
             
             let manga = Manga(
                 id: "\(sourceID)::\(slug)",
@@ -181,7 +193,7 @@ final class AsuraHTMLSourceEngine: SourceRuntime {
                 summary: "",
                 genres: ["Manhwa"],
                 coverHexes: SourceEngineUtilities.palette(for: slug),
-                coverURL: coverURL,
+                coverURL: bestCoverURL,
                 statusText: "Unknown"
             )
             items.append(manga)

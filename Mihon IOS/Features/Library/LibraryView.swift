@@ -27,7 +27,7 @@ struct LibraryView: View {
                                 VStack(alignment: .leading, spacing: 6) {
                                     Text(item.manga.title)
                                         .font(.headline)
-                                    Text(item.progress.map { "Page \($0.pageIndex + 1) • \(chapter.title)" } ?? chapter.title)
+                                    Text(item.progress.map { "\(chapter.title) • Page \($0.pageIndex + 1) of \($0.totalPages)" } ?? chapter.title)
                                         .font(.subheadline)
                                         .foregroundStyle(.secondary)
                                 }
@@ -77,9 +77,15 @@ struct LibraryView: View {
                                         .foregroundStyle(.secondary)
                                     HStack(spacing: 8) {
                                         if let progress = item.progress {
-                                            Text("Page \(progress.pageIndex + 1) of \(progress.totalPages)")
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
+                                            if let chapter = model.chapter(for: progress.chapterID, in: item.manga) {
+                                                Text("\(chapter.title) • Page \(progress.pageIndex + 1) of \(progress.totalPages)")
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                            } else {
+                                                Text("Page \(progress.pageIndex + 1) of \(progress.totalPages)")
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                            }
                                         }
                                         if model.state.libraryPreferences.showDownloadedBadge,
                                            item.latestChapter?.isDownloaded == true {
