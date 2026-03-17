@@ -10,12 +10,15 @@ final class RuntimeSourceRepository: SourceRepository, SourceCatalogRuntime {
     private let sourcesData: [Source]
     private let descriptorData: [SourceDescriptor]
     private let runtimes: [String: any SourceRuntime]
+    private let cache: AppCacheManaging
 
     init(
         repoRecords: [SourceRepoRecord] = [],
-        fallback: InternalSourceRepository = InternalSourceRepository()
+        fallback: InternalSourceRepository = InternalSourceRepository(),
+        cache: AppCacheManaging = AppCacheController.shared
     ) {
         self.fallback = fallback
+        self.cache = cache
 
         let registry = SourceRegistryBuilder().build(
             internalSources: fallback.sources(),
@@ -55,49 +58,74 @@ final class RuntimeSourceRepository: SourceRepository, SourceCatalogRuntime {
         guard let runtime = runtimes[sourceID] else {
             return try await fallback.popularManga(sourceID: sourceID)
         }
-        return try await runtime.popularManga(page: 1)
+        let key = "source|\(sourceID)|popular|page=1"
+        return try await cache.value(for: key, domain: .sourceMetadata, policy: .returnCacheElseLoad, ttl: 60 * 15) {
+            try await runtime.popularManga(page: 1)
+        }
     }
 
     func latestManga(sourceID: String) async throws -> [Manga] {
         guard let runtime = runtimes[sourceID] else {
             return try await fallback.latestManga(sourceID: sourceID)
         }
-        return try await runtime.latestManga(page: 1)
+        let key = "source|\(sourceID)|latest|page=1"
+        return try await cache.value(for: key, domain: .sourceMetadata, policy: .returnCacheElseLoad, ttl: 60 * 15) {
+            try await runtime.latestManga(page: 1)
+        }
     }
 
     func searchManga(sourceID: String, query: String, filters: [SourceFilterValue]) async throws -> [Manga] {
         guard let runtime = runtimes[sourceID] else {
             return try await fallback.searchManga(sourceID: sourceID, query: query, filters: filters)
         }
-        return try await runtime.searchManga(SourceSearchRequest(query: query, page: 1, filters: filters))
+        let request = SourceSearchRequest(query: query, page: 1, filters: filters)
+        let key = "source|\(sourceID)|search|\(query.lowercased())|\(filters.map(\.cacheKey).joined(separator: "|"))"
+        return try await cache.value(for: key, domain: .sourceMetadata, policy: .returnCacheElseLoad, ttl: 60 * 10) {
+            try await runtime.searchManga(request)
+        }
     }
 
     func mangaDetails(sourceID: String, mangaIDOrURL: String) async throws -> SourceMangaDetails {
         guard let runtime = runtimes[sourceID] else {
             return try await fallback.mangaDetails(sourceID: sourceID, mangaIDOrURL: mangaIDOrURL)
         }
-        return try await runtime.mangaDetails(mangaIDOrURL: mangaIDOrURL)
+        let key = "source|\(sourceID)|details|\(mangaIDOrURL)"
+        let manga = try await cache.value(for: key, domain: .sourceMetadata, policy: .returnCacheElseLoad, ttl: 60 * 60) {
+            try await runtime.mangaDetails(mangaIDOrURL: mangaIDOrURL).manga
+        }
+        return SourceMangaDetails(manga: manga)
     }
 
     func chapters(sourceID: String, manga: Manga) async throws -> SourceChapterDetails {
         guard let runtime = runtimes[sourceID] else {
             return try await fallback.chapters(sourceID: sourceID, manga: manga)
         }
-        return try await runtime.chapters(for: manga)
+        let key = "source|\(sourceID)|chapters|\(manga.id)"
+        let chapters = try await cache.value(for: key, domain: .sourceMetadata, policy: .returnCacheElseLoad, ttl: 60 * 30) {
+            try await runtime.chapters(for: manga).chapters
+        }
+        return SourceChapterDetails(chapters: chapters)
     }
 
     func pages(sourceID: String, chapter: Chapter) async throws -> SourcePageAsset {
         guard let runtime = runtimes[sourceID] else {
             return try await fallback.pages(sourceID: sourceID, chapter: chapter)
         }
-        return try await runtime.pages(for: chapter)
+        let pageKey = "source|\(sourceID)|pages|\(chapter.id)"
+        let pages = try await cache.value(for: pageKey, domain: .sourceMetadata, policy: .returnCacheElseLoad, ttl: 60 * 30) {
+            try await runtime.pages(for: chapter).pages
+        }
+        return SourcePageAsset(pages: pages, errorMessage: nil)
     }
 
     func genreTags(sourceID: String) async throws -> [GenreTag] {
         guard let runtime = runtimes[sourceID] else {
             return try await fallback.genreTags(sourceID: sourceID)
         }
-        return try await runtime.genreTags()
+        let key = "source|\(sourceID)|genres"
+        return try await cache.value(for: key, domain: .sourceMetadata, policy: .returnCacheElseLoad, ttl: 60 * 60 * 6) {
+            try await runtime.genreTags()
+        }
     }
 
     private static func buildRuntimes(
@@ -138,5 +166,22 @@ final class RuntimeSourceRepository: SourceRepository, SourceCatalogRuntime {
         }
 
         return runtimes
+    }
+}
+
+private extension SourceFilterValue {
+    var cacheKey: String {
+        switch self {
+        case .sort(let value):
+            return "sort=\(value)"
+        case .orderAscending(let value):
+            return "asc=\(value)"
+        case .types(let values):
+            return "types=\(values.joined(separator: ","))"
+        case .genreInclude(let mode, let slugs):
+            return "include=\(mode):\(slugs.joined(separator: ","))"
+        case .genreExclude(let mode, let slugs):
+            return "exclude=\(mode):\(slugs.joined(separator: ","))"
+        }
     }
 }

@@ -24,19 +24,10 @@ struct MangaCoverView: View {
                 if shouldHideCover {
                     hiddenCoverOverlay
                 } else if let coverURL = manga.coverURL, let url = URL(string: coverURL) {
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .empty:
-                            gradientOverlay
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .scaledToFill()
-                        case .failure:
-                            gradientOverlay
-                        @unknown default:
-                            gradientOverlay
-                        }
+                    CachedCoverImage(url: url) { image in
+                        image
+                            .resizable()
+                            .scaledToFill()
                     }
                     .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
                 } else {
@@ -79,5 +70,36 @@ struct MangaCoverView: View {
             .foregroundStyle(.white.opacity(0.9))
         }
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+    }
+}
+
+private struct CachedCoverImage<Content: View>: View {
+    let url: URL
+    @ViewBuilder let content: (Image) -> Content
+
+    @State private var uiImage: UIImage?
+
+    var body: some View {
+        Group {
+            if let uiImage {
+                content(Image(uiImage: uiImage))
+            } else {
+                Rectangle()
+                    .fill(.clear)
+                    .task(id: url) {
+                        await load()
+                    }
+            }
+        }
+    }
+
+    @MainActor
+    private func load() async {
+        do {
+            let image = try await ReaderImagePipeline.shared.image(for: url, forceRefresh: false)
+            uiImage = image
+        } catch {
+            uiImage = nil
+        }
     }
 }

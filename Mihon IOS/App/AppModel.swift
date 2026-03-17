@@ -34,7 +34,16 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
     @Published private(set) var importingRepoURL: String?
     @Published private(set) var isAppUnlocked = true
     @Published private(set) var biometricErrorMessage: String?
-    @Published var releaseNotesPresented = true
+    @Published private(set) var cacheStats = CacheStats(
+        memoryImageCount: 0,
+        memoryDataCount: 0,
+        diskImageBytes: 0,
+        diskMetadataBytes: 0,
+        diskNetworkBytes: 0,
+        hitCount: 0,
+        missCount: 0
+    )
+    @Published var releaseNotesPresented = false
 
     private let databaseCoordinator: FileDatabaseCoordinator
     private let legacyStore: AppStateStore
@@ -43,6 +52,7 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
     private let localContentRepository: LocalContentRepository
     private let readerAssetRepository: ReaderAssetRepository
     private let repoImporter: SourceRepoImporter
+    private let cacheController: AppCacheManaging
 
     init(
         store: AppStateStore = AppStateStore(),
@@ -50,13 +60,15 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
         databaseCoordinator: FileDatabaseCoordinator? = nil,
         localContentRepository: LocalContentRepository = DefaultLocalContentRepository(),
         readerAssetRepository: ReaderAssetRepository = DefaultReaderAssetRepository(),
-        repoImporter: SourceRepoImporter = SourceRepoImporter()
+        repoImporter: SourceRepoImporter = SourceRepoImporter(),
+        cacheController: AppCacheManaging = AppCacheController.shared
     ) {
         self.legacyStore = store
         self.databaseCoordinator = databaseCoordinator ?? FileDatabaseCoordinator(stateStore: store)
         self.localContentRepository = localContentRepository
         self.readerAssetRepository = readerAssetRepository
         self.repoImporter = repoImporter
+        self.cacheController = cacheController
         self.importRepository = FileImportRepository(coordinator: self.databaseCoordinator)
 
         let snapshot = self.databaseCoordinator.loadSnapshot()
@@ -73,16 +85,16 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
                 )
             }
             : snapshot.repoRecords
-        self.repository = repository ?? RuntimeSourceRepository(repoRecords: hydratedRepoRecords)
+        self.repository = repository ?? RuntimeSourceRepository(repoRecords: hydratedRepoRecords, cache: cacheController)
         var persistedState = snapshot.state
         persistedState.sourceRepos = hydratedRepoRecords.map(\.url)
         self.state = persistedState
         self.importRecords = snapshot.imports
         self.importJobsState = snapshot.importJobs
         self.repoRecords = hydratedRepoRecords
-        self.sourceMangaCache = [:]
+        self.sourceMangaCache = snapshot.cachedManga
         self.sourceGenreCache = [:]
-        self.chapterCache = [:]
+        self.chapterCache = snapshot.cachedChapters
         self.pageCache = [:]
         self.sourceErrors = [:]
         self.pageLoadErrors = [:]
@@ -92,7 +104,16 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
         self.sources = self.repository.sources()
 
         seedInitialLibraryIfNeeded()
+        
+        let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+        if persistedState.appSettings.releaseNotesSeenVersion != currentVersion {
+            self.releaseNotesPresented = true
+            self.state.appSettings.releaseNotesSeenVersion = currentVersion
+            // Cannot call normal class methods yet, but init covers initial state; we will call persist after init formally completes or rely on subsequent persists.
+        }
+
         bootState = .ready
+        Task { await refreshCacheStats() }
     }
 
     var preferences: AppPreferences {
@@ -121,14 +142,19 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
     }
 
     var allManga: [Manga] {
-        let remote = Dictionary(
-            uniqueKeysWithValues: (
-                repository.sources()
-                    .filter { $0.kind == .remote }
-                    .flatMap { repository.mangas(for: $0.id) } +
-                sourceMangaCache.values.flatMap { $0 }
-            ).map { ($0.id, $0) }
-        )
+        let remote = (
+            repository.sources()
+                .filter { $0.kind == .remote }
+                .flatMap { repository.mangas(for: $0.id) } +
+            sourceMangaCache.values.flatMap { $0 } +
+            state.persistedMangas
+        ).reduce(into: [String: Manga]()) { partialResult, manga in
+            if let existing = partialResult[manga.id] {
+                partialResult[manga.id] = preferredManga(existing, manga)
+            } else {
+                partialResult[manga.id] = manga
+            }
+        }
         return remote.values.sorted { $0.title < $1.title } +
         localContentRepository.mangas(from: importRecords, sourceID: "local-files")
     }
@@ -202,7 +228,9 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
 
     func jobs() -> [DownloadJob] {
         importRecords.flatMap { record in
-            let manga = localContentRepository.mangas(from: [record], sourceID: "local-files").first!
+            guard let manga = localContentRepository.mangas(from: [record], sourceID: "local-files").first else {
+                return [DownloadJob]()
+            }
             return localContentRepository.chapters(for: record.title.id, from: [record]).map { chapter in
                 let pending = record.title.kind == .cbz || record.title.kind == .zip || record.title.kind == .epub
                 return DownloadJob(
@@ -269,6 +297,11 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
     func toggleLibrary(_ manga: Manga) {
         if isInLibrary(manga) {
             state.library.removeAll { $0.mangaID == manga.id }
+            
+            // Cleanup persisted backup if history doesn't mention it either
+            if !state.history.contains(where: { $0.mangaID == manga.id }) {
+                state.persistedMangas.removeAll { $0.id == manga.id }
+            }
         } else {
             state.library.insert(
                 LibraryEntry(
@@ -278,8 +311,21 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
                 ),
                 at: 0
             )
+            if !state.persistedMangas.contains(where: { $0.id == manga.id }) {
+                state.persistedMangas.append(manga)
+            }
+            ensureMangaCached(manga)
         }
         persist()
+    }
+
+    private func ensureMangaCached(_ manga: Manga) {
+        guard manga.sourceID != "local-files" else { return }
+        var items = sourceMangaCache[manga.sourceID] ?? []
+        if !items.contains(where: { $0.id == manga.id }) {
+            items.append(manga)
+            sourceMangaCache[manga.sourceID] = items
+        }
     }
 
     func assignCategory(_ categoryID: String, to manga: Manga) {
@@ -462,6 +508,10 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
                 at: 0
             )
             state.history = Array(state.history.prefix(max(state.advancedPreferences.historyLimit, 1)))
+
+            if !state.persistedMangas.contains(where: { $0.id == manga.id }) {
+                state.persistedMangas.append(manga)
+            }
         }
         persist()
     }
@@ -822,6 +872,18 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
         sources.first { $0.id == id }
     }
 
+    func primaryLocalSource() -> Source? {
+        sources.first { $0.id == "local-files" } ?? sources.first(where: { $0.kind == .local })
+    }
+
+    func resolvedSourceOrNil(for sourceID: String) -> Source? {
+        source(for: sourceID) ?? (sourceID == "local-files" ? primaryLocalSource() : nil)
+    }
+
+    func migrationSource(for manga: Manga) -> Source? {
+        source(for: manga.sourceID) ?? sources.first(where: { $0.kind == .remote }) ?? primaryLocalSource()
+    }
+
     func sourceWebURL(for source: Source, manga: Manga? = nil) -> URL? {
         if source.id == "kiryuu-id" {
             if let manga, let slug = manga.id.components(separatedBy: "::").last {
@@ -880,6 +942,7 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
 
     func refreshSourceFeed(for source: Source, mode: SourceFeedKind, query: String = "", filters: [SourceFilterValue] = []) async {
         guard supportsLiveSource(source) else { return }
+        appendDiagnostic(kind: .stateTransition, title: "Source Feed Started", message: "Refreshing \(mode.rawValue) feed.", metadata: ["source": source.name])
         do {
             let items: [Manga]
             switch mode {
@@ -892,6 +955,9 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
             }
             sourceMangaCache[source.id] = items
             sourceErrors[source.id] = nil
+            appendDiagnostic(kind: .cache, title: "Source Feed Cached", message: "Stored \(items.count) items.", metadata: ["source": source.name, "mode": mode.rawValue])
+            await refreshCacheStats()
+            persist()
         } catch {
             sourceErrors[source.id] = error.localizedDescription
             appendDiagnostic(kind: .source, title: "Source Feed Failed", message: error.localizedDescription, metadata: ["source": source.name, "mode": mode.rawValue])
@@ -902,6 +968,8 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
         guard supportsLiveSource(source), sourceGenreCache[source.id] == nil else { return }
         do {
             sourceGenreCache[source.id] = try await repository.genreTags(sourceID: source.id)
+            appendDiagnostic(kind: .cache, title: "Genre Cache Filled", message: "Loaded \(sourceGenreCache[source.id]?.count ?? 0) genres.", metadata: ["source": source.name])
+            await refreshCacheStats()
         } catch {
             sourceErrors[source.id] = error.localizedDescription
             appendDiagnostic(kind: .source, title: "Genre Load Failed", message: error.localizedDescription, metadata: ["source": source.name])
@@ -912,10 +980,13 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
         guard supportsLiveSource(sourceID: manga.sourceID) else {
             return manga
         }
+        appendDiagnostic(kind: .stateTransition, title: "Manga Detail Started", message: "Refreshing manga details.", metadata: ["manga": manga.title, "sourceID": manga.sourceID])
         do {
             let details = try await repository.mangaDetails(sourceID: manga.sourceID, mangaIDOrURL: manga.id)
             replaceCachedManga(details.manga, for: manga.sourceID)
             sourceErrors[manga.sourceID] = nil
+            await refreshCacheStats()
+            persist()
             return details.manga
         } catch {
             sourceErrors[manga.sourceID] = error.localizedDescription
@@ -928,10 +999,13 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
         if manga.sourceID == "local-files" {
             return chapters(for: manga)
         }
+        appendDiagnostic(kind: .stateTransition, title: "Chapter Load Started", message: "Refreshing chapter list.", metadata: ["manga": manga.title, "sourceID": manga.sourceID])
         do {
             let details = try await repository.chapters(sourceID: manga.sourceID, manga: manga)
             chapterCache[manga.id] = details.chapters
             sourceErrors[manga.sourceID] = nil
+            await refreshCacheStats()
+            persist()
             return details.chapters
         } catch {
             sourceErrors[manga.sourceID] = error.localizedDescription
@@ -946,6 +1020,7 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
             pageLoadErrors[chapter.id] = nil
             return chapter.pages
         }
+        appendDiagnostic(kind: .stateTransition, title: "Page Load Started", message: "Refreshing chapter pages.", metadata: ["sourceID": sourceID, "chapterID": chapter.id])
         do {
             let details = try await repository.pages(sourceID: sourceID, chapter: chapter)
             pageCache[chapter.id] = details.pages
@@ -954,6 +1029,7 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
             if let warning = details.errorMessage, !warning.isEmpty {
                 appendDiagnostic(kind: .reader, title: "Page Load Warning", message: warning, metadata: ["sourceID": sourceID, "chapterID": chapter.id])
             }
+            await refreshCacheStats()
             return details.pages
         } catch {
             sourceErrors[sourceID] = error.localizedDescription
@@ -986,6 +1062,9 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
             let result = try importRepository.importItems(from: urls)
             importRecords = result.records
             importJobsState = result.jobs
+            for failure in result.failures {
+                appendDiagnostic(kind: .app, title: "Local Import Failed", message: failure.reason, metadata: ["file": failure.fileName])
+            }
         } catch {
             appendDiagnostic(kind: .app, title: "Local Import Failed", message: error.localizedDescription, metadata: [:])
             bootState = .failed("Failed to import local content: \(error.localizedDescription)")
@@ -1015,6 +1094,9 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
             "Source repos: \(state.sourceRepos.count)",
             "Page cache: \(pageCache.count)",
             "Chapter cache: \(chapterCache.count)",
+            "Disk image cache: \(formatBytes(cacheStats.diskImageBytes))",
+            "Disk metadata cache: \(formatBytes(cacheStats.diskMetadataBytes))",
+            "Cache hits/misses: \(cacheStats.hitCount)/\(cacheStats.missCount)",
             "Error logs: \(diagnosticLogs.count)",
         ]
     }
@@ -1031,6 +1113,27 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
 
     func clearImageCache() async {
         await ReaderImagePipeline.shared.clear()
+        await refreshCacheStats()
+    }
+
+    func clearSourceMetadataCache() async {
+        await cacheController.clear(.sourceMetadata)
+        sourceGenreCache.removeAll()
+        sourceMangaCache.removeAll()
+        chapterCache.removeAll()
+        pageCache.removeAll()
+        appendDiagnostic(kind: .cache, title: "Metadata Cache Cleared", message: "Source metadata caches were cleared.", metadata: [:])
+        await refreshCacheStats()
+    }
+
+    func clearAllCaches() async {
+        await cacheController.clear(.all)
+        sourceGenreCache.removeAll()
+        sourceMangaCache.removeAll()
+        chapterCache.removeAll()
+        pageCache.removeAll()
+        appendDiagnostic(kind: .cache, title: "All Caches Cleared", message: "Image and metadata caches were cleared.", metadata: [:])
+        await refreshCacheStats()
     }
 
     func lockAppIfNeeded() {
@@ -1082,13 +1185,21 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
     private func persist() {
         state.schemaVersion = PersistedState.currentSchemaVersion
         state.sourceRepos = repoRecords.map(\.url)
-        let snapshot = DatabaseSnapshot(state: state, imports: importRecords, importJobs: importJobsState, repoRecords: repoRecords, diagnostics: diagnosticLogs)
+        let snapshot = DatabaseSnapshot(
+            state: state,
+            imports: importRecords,
+            importJobs: importJobsState,
+            repoRecords: repoRecords,
+            diagnostics: diagnosticLogs,
+            cachedManga: sourceMangaCache,
+            cachedChapters: chapterCache
+        )
         databaseCoordinator.saveSnapshot(snapshot)
         legacyStore.save(state)
     }
 
     private func rebuildSourceRepository() {
-        repository = RuntimeSourceRepository(repoRecords: repoRecords)
+        repository = RuntimeSourceRepository(repoRecords: repoRecords, cache: cacheController)
         sources = repository.sources()
     }
 
@@ -1100,6 +1211,24 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
             items.insert(manga, at: 0)
         }
         sourceMangaCache[sourceID] = items
+    }
+
+    private func preferredManga(_ lhs: Manga, _ rhs: Manga) -> Manga {
+        let lhsScore = mangaCompletenessScore(lhs)
+        let rhsScore = mangaCompletenessScore(rhs)
+        if rhsScore != lhsScore {
+            return rhsScore > lhsScore ? rhs : lhs
+        }
+        return rhs.summary.count > lhs.summary.count ? rhs : lhs
+    }
+
+    private func mangaCompletenessScore(_ manga: Manga) -> Int {
+        var score = 0
+        if !manga.summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { score += 3 }
+        if manga.coverURL != nil { score += 2 }
+        if !manga.genres.isEmpty { score += 1 }
+        if manga.author != "Unknown" { score += 1 }
+        return score
     }
 
     private func appendDiagnostic(kind: DiagnosticLogKind, title: String, message: String, metadata: [String: String]) {
@@ -1115,6 +1244,14 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
             at: 0
         )
         diagnosticLogs = Array(diagnosticLogs.prefix(200))
+    }
+
+    private func refreshCacheStats() async {
+        cacheStats = await cacheController.stats()
+    }
+
+    private func formatBytes(_ bytes: Int) -> String {
+        ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
     }
 
     private func resolvedSource(for imported: ImportedSourceDescriptor) -> Source? {

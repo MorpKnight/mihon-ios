@@ -88,11 +88,15 @@ struct MangaDetailView: View {
                     }
                 }
 
-                if let startChapter = (sortedChapters.first ?? model.startChapter(for: displayManga)) {
+                if let startChapter = model.startChapter(for: displayManga) ?? sortedChapters.first {
                     NavigationLink {
                         ReaderView(manga: displayManga, initialChapter: startChapter)
                     } label: {
-                        Label("Resume Reading", systemImage: "play.circle.fill")
+                        if model.progress(for: displayManga) != nil {
+                            Label("Resume Reading", systemImage: "play.circle.fill")
+                        } else {
+                            Label("Start Reading", systemImage: "play.circle")
+                        }
                     }
                 }
 
@@ -108,13 +112,19 @@ struct MangaDetailView: View {
                     Label("Notes", systemImage: "note.text")
                 }
 
-                NavigationLink {
-                    MigrationConfirmationView(source: model.source(for: displayManga.sourceID) ?? model.sources[0], target: displayManga)
-                } label: {
-                    Label("Migrate Title", systemImage: "arrow.triangle.swap")
+                if let migrationSource = model.migrationSource(for: displayManga) {
+                    NavigationLink {
+                        MigrationConfirmationView(source: migrationSource, target: displayManga)
+                    } label: {
+                        Label("Migrate Title", systemImage: "arrow.triangle.swap")
+                    }
+                } else {
+                    Label("Migration unavailable", systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.secondary)
                 }
 
-                if let webURL = model.sourceWebURL(for: model.source(for: displayManga.sourceID) ?? model.sources[0], manga: displayManga) {
+                if let source = model.resolvedSourceOrNil(for: displayManga.sourceID),
+                   let webURL = model.sourceWebURL(for: source, manga: displayManga) {
                     Link(destination: webURL) {
                         Label("Open in Web", systemImage: "safari")
                     }
@@ -132,6 +142,14 @@ struct MangaDetailView: View {
             if let error = model.sourceError(for: displayManga.sourceID) {
                 Section {
                     Text(error)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if model.resolvedSourceOrNil(for: displayManga.sourceID) == nil {
+                Section {
+                    Text("This title's source is currently unavailable. Reading and local metadata remain accessible where cached.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }

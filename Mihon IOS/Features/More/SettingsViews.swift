@@ -190,6 +190,9 @@ struct DataStorageView: View {
                 LabeledContent("Summary", value: model.storageSummary())
                 LabeledContent("Imports", value: model.localImportSummary())
                 LabeledContent("Database", value: "Snapshot JSON + import storage")
+                LabeledContent("Image Cache", value: ByteCountFormatter.string(fromByteCount: Int64(model.cacheStats.diskImageBytes), countStyle: .file))
+                LabeledContent("Metadata Cache", value: ByteCountFormatter.string(fromByteCount: Int64(model.cacheStats.diskMetadataBytes), countStyle: .file))
+                LabeledContent("Network Cache", value: ByteCountFormatter.string(fromByteCount: Int64(model.cacheStats.diskNetworkBytes), countStyle: .file))
             }
 
             Section("Maintenance") {
@@ -204,6 +207,12 @@ struct DataStorageView: View {
                 }
                 Button("Clear Image Cache", role: .destructive) {
                     Task { await model.clearImageCache() }
+                }
+                Button("Clear Source Metadata Cache", role: .destructive) {
+                    Task { await model.clearSourceMetadataCache() }
+                }
+                Button("Clear All Caches", role: .destructive) {
+                    Task { await model.clearAllCaches() }
                 }
             }
         }

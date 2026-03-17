@@ -27,7 +27,7 @@ struct LibraryView: View {
                                 VStack(alignment: .leading, spacing: 6) {
                                     Text(item.manga.title)
                                         .font(.headline)
-                                    Text(item.progress.map { "Page \($0.pageIndex + 1) • \(chapter.title)" } ?? chapter.title)
+                                    Text(item.progress.map { "\(chapter.title) • Page \($0.pageIndex + 1) of \($0.totalPages)" } ?? chapter.title)
                                         .font(.subheadline)
                                         .foregroundStyle(.secondary)
                                 }
@@ -54,11 +54,11 @@ struct LibraryView: View {
 
             Section("Library") {
                 if items.isEmpty {
-                    ContentUnavailableView(
-                        "No manga here",
-                        systemImage: "books.vertical",
-                        description: Text("Add titles from Browse to start your iOS library baseline.")
-                    )
+                    ContentUnavailableView {
+                        Label("Library is Empty", systemImage: "books.vertical")
+                    } description: {
+                        Text("Add titles from Browse to start your iOS library baseline.")
+                    }
                     .padding(.vertical, 12)
                 } else {
                     ForEach(items) { item in
@@ -77,9 +77,15 @@ struct LibraryView: View {
                                         .foregroundStyle(.secondary)
                                     HStack(spacing: 8) {
                                         if let progress = item.progress {
-                                            Text("Page \(progress.pageIndex + 1) of \(progress.totalPages)")
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
+                                            if let chapter = model.chapter(for: progress.chapterID, in: item.manga) {
+                                                Text("\(chapter.title) • Page \(progress.pageIndex + 1) of \(progress.totalPages)")
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                            } else {
+                                                Text("Page \(progress.pageIndex + 1) of \(progress.totalPages)")
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                            }
                                         }
                                         if model.state.libraryPreferences.showDownloadedBadge,
                                            item.latestChapter?.isDownloaded == true {
@@ -92,9 +98,30 @@ struct LibraryView: View {
                             }
                             .padding(.vertical, 3)
                         }
+                        .contextMenu {
+                            Button {
+                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                // Example: Quick Read
+                                if let chapter = model.startChapter(for: item.manga) {
+                                    // Normally we would invoke a navigation hack or state via environment, but for now we just play haptic
+                                }
+                            } label: {
+                                Label("Read", systemImage: "book")
+                            }
+
+                            if !model.state.securityPreferences.lockLibraryEdits {
+                                Button(role: .destructive) {
+                                    UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+                                    model.toggleLibrary(item.manga)
+                                } label: {
+                                    Label("Remove from Library", systemImage: "trash")
+                                }
+                            }
+                        }
                         .swipeActions {
                             if !model.state.securityPreferences.lockLibraryEdits {
                                 Button(role: .destructive) {
+                                    UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
                                     model.toggleLibrary(item.manga)
                                 } label: {
                                     Label("Delete", systemImage: "trash")

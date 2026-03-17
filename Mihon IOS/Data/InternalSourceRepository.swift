@@ -127,19 +127,6 @@ struct InternalSourceRepository: SourceRepository {
             allowsAdultContent: false
         )
 
-        let nhentai = Source(
-            id: "nhentai-all",
-            name: "NHentai",
-            kind: .remote,
-            engineFamily: .nhentai,
-            summary: "NHentai all-language runtime with ID search, gallery metadata, and single-chapter reading flow.",
-            systemImage: "eye.circle",
-            language: .multi,
-            isEnabled: true,
-            isPinned: false,
-            allowsAdultContent: true
-        )
-
         let zeist = Source(
             id: "zeist-sample",
             name: "Zeist Sample",
@@ -239,14 +226,13 @@ struct InternalSourceRepository: SourceRepository {
             Chapter(id: "wind-breaker-173", mangaID: "wind-breaker", title: "Chapter 173", number: 173, releaseDate: now.addingTimeInterval(-172_800), isDownloaded: true, pages: makePages(prefix: "wind-breaker-173", accents: ["#1C5D99", "#2D79C7", "#7FAEEB"])),
         ]
 
-        self.sourcesData = [kiryuu, asuraScans, mangabat, komikIndoID, nhentai, remote, local, madara, themesia, zeist, fmReader, foolSlide, newToki, custom]
+        self.sourcesData = [kiryuu, asuraScans, mangabat, komikIndoID, remote, local, madara, themesia, zeist, fmReader, foolSlide, newToki, custom]
         self.descriptorData = [
             Self.makeDescriptor(for: remote, baseURL: nil, capabilities: [.popular, .latest, .search, .mangaDetail, .chapterList], featureFlags: ["catalog-only"], overrides: [:]),
             Self.makeDescriptor(for: kiryuu, baseURL: "https://v1.kiryuu.to", capabilities: [.popular, .latest, .search, .mangaDetail, .chapterList, .pageList, .filters, .reader], featureFlags: ["runtime-live", "natsuid-v1"], overrides: [:]),
             Self.makeDescriptor(for: asuraScans, baseURL: "https://asuracomic.net", capabilities: [.popular, .latest, .search, .mangaDetail, .chapterList, .pageList, .filters, .reader], featureFlags: ["runtime-live", "source-asura"], overrides: ["apiURL": "https://gg.asuracomic.net/api"]),
             Self.makeDescriptor(for: mangabat, baseURL: "https://www.mangabats.com", capabilities: [.popular, .latest, .search, .mangaDetail, .chapterList, .pageList, .filters, .reader], featureFlags: ["runtime-live", "family-mangabox"], overrides: [:]),
             Self.makeDescriptor(for: komikIndoID, baseURL: "https://komikindo.ch", capabilities: [.popular, .latest, .search, .mangaDetail, .chapterList, .pageList, .filters, .reader], featureFlags: ["runtime-live", "source-komikindoid"], overrides: ["dateFormat": "MMM d, yyyy"]),
-            Self.makeDescriptor(for: nhentai, baseURL: "https://nhentai.net", capabilities: [.popular, .latest, .search, .mangaDetail, .chapterList, .pageList, .filters, .reader], featureFlags: ["runtime-live", "source-nhentai"], overrides: ["languagePath": "", "searchIDPrefix": "id:"]),
             Self.makeDescriptor(for: local, baseURL: nil, capabilities: [.mangaDetail, .chapterList, .pageList, .reader], featureFlags: ["imported-content"], overrides: [:]),
             Self.makeDescriptor(for: madara, baseURL: "https://madaradex.org", capabilities: [.popular, .latest, .search, .mangaDetail, .chapterList, .pageList, .filters, .reader], featureFlags: ["runtime-live", "family-madara"], overrides: ["mangaSubPath": "title", "dateFormat": "MMM d, yyyy"]),
             Self.makeDescriptor(for: themesia, baseURL: "https://ainzscans01.com", capabilities: [.popular, .latest, .search, .mangaDetail, .chapterList, .pageList, .filters, .reader], featureFlags: ["runtime-live", "family-mangathemesia"], overrides: ["mangaSubPath": "series", "dateFormat": "MMMM dd, yyyy", "hasProjectPage": "true"]),

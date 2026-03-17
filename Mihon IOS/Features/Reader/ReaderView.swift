@@ -20,9 +20,11 @@ struct ReaderView: View {
     @State private var showingSettings = false
     @State private var showingActions = false
     @State private var showingChrome = false
-    @State private var isLoadingPages = false
+    @State private var pageLoadState: ReaderContentLoadState = .idle
     @State private var retryTick = 0
     @State private var pendingPageIndexAfterChapterChange: Int?
+    @State private var activeLoadRequestID = UUID()
+    @State private var prefetchTask: Task<Void, Never>?
 
     init(manga: Manga, initialChapter: Chapter) {
         self.manga = manga
@@ -75,10 +77,11 @@ struct ReaderView: View {
                 sliderPageIndex = Double(pageIndex + 1)
             }
             persistProgress()
-            Task { await ensurePagesLoaded() }
+            startPageLoad(forceRefresh: false)
         }
         .onChange(of: pageIndex) { _, newValue in
-            sliderPageIndex = Double(newValue + 1)
+            pageIndex = min(max(newValue, 0), max(currentPages.count - 1, 0))
+            sliderPageIndex = Double(pageIndex + 1)
             persistProgress()
             prefetchAroundCurrentPage()
         }
@@ -86,10 +89,15 @@ struct ReaderView: View {
             pageIndex = pendingPageIndexAfterChapterChange ?? 0
             sliderPageIndex = Double(pageIndex + 1)
             persistProgress()
-            Task { await ensurePagesLoaded() }
+            startPageLoad(forceRefresh: false)
         }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active { persistProgress() }
+        }
+        .onDisappear {
+            activeLoadRequestID = UUID()
+            prefetchTask?.cancel()
+            prefetchTask = nil
         }
     }
 
@@ -106,7 +114,7 @@ struct ReaderView: View {
 
     @ViewBuilder
     private var readerBody: some View {
-        if isLoadingPages && currentPages.isEmpty {
+        if pageLoadState == .loading && currentPages.isEmpty {
             ProgressView("Loading chapter…")
                 .tint(.white)
                 .foregroundStyle(.white)
@@ -116,7 +124,7 @@ struct ReaderView: View {
             ReaderEmptyState(
                 message: model.pageLoadError(for: currentChapter.id) ?? "No readable pages were found for this chapter.",
                 retry: {
-                    Task { await retryCurrentChapter() }
+                    startPageLoad(forceRefresh: true)
                 }
             )
         } else if model.state.readerPreferences.mode == .vertical || model.state.readerPreferences.mode == .webtoon {
@@ -533,6 +541,7 @@ struct ReaderView: View {
 
     private func transitionToChapter(_ chapter: Chapter, pageIndex targetPageIndex: Int) {
         pendingPageIndexAfterChapterChange = targetPageIndex
+        pageLoadState = .idle
         currentChapter = chapter
     }
 
@@ -546,32 +555,30 @@ struct ReaderView: View {
         return 0
     }
 
-    private func ensurePagesLoaded() async {
-        guard currentPages.isEmpty else { return }
-        isLoadingPages = true
-        let pages = await model.refreshPages(for: currentChapter, sourceID: manga.sourceID)
-        if !pages.isEmpty {
-            currentChapter = Chapter(
-                id: currentChapter.id,
-                mangaID: currentChapter.mangaID,
-                title: currentChapter.title,
-                number: currentChapter.number,
-                releaseDate: currentChapter.releaseDate,
-                isDownloaded: currentChapter.isDownloaded,
-                pages: pages
-            )
+    private func startPageLoad(forceRefresh: Bool) {
+        if !forceRefresh, !currentPages.isEmpty {
+            pageLoadState = .loaded
+            prefetchAroundCurrentPage()
+            return
         }
-        let targetIndex = pendingPageIndexAfterChapterChange ?? pageIndex
-        pageIndex = min(max(targetIndex, 0), max(currentPages.count - 1, 0))
-        sliderPageIndex = Double(pageIndex + 1)
-        pendingPageIndexAfterChapterChange = nil
-        isLoadingPages = false
-        prefetchAroundCurrentPage()
+        let requestID = UUID()
+        activeLoadRequestID = requestID
+        let chapterSnapshot = currentChapter
+        pageLoadState = .loading
+        Task {
+            let pages = forceRefresh
+                ? await model.retryPages(for: chapterSnapshot, sourceID: manga.sourceID)
+                : await model.refreshPages(for: chapterSnapshot, sourceID: manga.sourceID)
+            await MainActor.run {
+                applyLoadedPages(pages, requestID: requestID, chapterSnapshot: chapterSnapshot, forceRefresh: forceRefresh)
+            }
+        }
     }
 
-    private func retryCurrentChapter() async {
-        isLoadingPages = true
-        let pages = await model.retryPages(for: currentChapter, sourceID: manga.sourceID)
+    private func applyLoadedPages(_ pages: [ReaderPage], requestID: UUID, chapterSnapshot: Chapter, forceRefresh: Bool) {
+        guard requestID == activeLoadRequestID else { return }
+        guard chapterSnapshot.id == currentChapter.id else { return }
+
         if !pages.isEmpty {
             currentChapter = Chapter(
                 id: currentChapter.id,
@@ -583,12 +590,17 @@ struct ReaderView: View {
                 pages: pages
             )
         }
-        retryTick += 1
+
+        if forceRefresh {
+            retryTick += 1
+        }
+
         let targetIndex = pendingPageIndexAfterChapterChange ?? pageIndex
-        pageIndex = min(max(targetIndex, 0), max(currentPages.count - 1, 0))
-        sliderPageIndex = Double(pageIndex + 1)
+        let boundedPageIndex = min(max(targetIndex, 0), max(currentPages.count - 1, 0))
+        pageIndex = boundedPageIndex
+        sliderPageIndex = Double(boundedPageIndex + 1)
         pendingPageIndexAfterChapterChange = nil
-        isLoadingPages = false
+        pageLoadState = currentPages.isEmpty ? .failed : .loaded
         prefetchAroundCurrentPage()
     }
 
@@ -605,13 +617,15 @@ struct ReaderView: View {
     private func prefetchAroundCurrentPage() {
         let prefetchCount = model.state.advancedPreferences.imagePrefetchCount
         guard prefetchCount > 0 else { return }
+        prefetchTask?.cancel()
+        let chapterID = currentChapter.id
         let window = currentPages.enumerated().compactMap { index, page -> URL? in
             guard abs(index - pageIndex) <= prefetchCount, let remoteURL = page.remoteURL else { return nil }
             return URL(string: remoteURL)
         }
         guard !window.isEmpty else { return }
-        Task {
-            await ReaderImagePipeline.shared.prefetch(window)
+        prefetchTask = Task {
+            await ReaderImagePipeline.shared.prefetch(window, chapterID: chapterID)
         }
     }
 }
@@ -874,37 +888,35 @@ private enum RemoteImagePhase {
 actor ReaderImagePipeline {
     static let shared = ReaderImagePipeline()
 
-    private let cache = NSCache<NSURL, UIImage>()
+    private let cache: AppCacheManaging = AppCacheController.shared
     private var inFlight: [URL: Task<UIImage, Error>] = [:]
 
     func image(for url: URL, forceRefresh: Bool) async throws -> UIImage {
-        if !forceRefresh, let cached = cache.object(forKey: url as NSURL) {
-            return cached
-        }
-
         if !forceRefresh, let task = inFlight[url] {
             return try await task.value
         }
 
         let task = Task<UIImage, Error> {
             var request = URLRequest(url: url)
-            request.cachePolicy = forceRefresh ? .reloadIgnoringLocalCacheData : .returnCacheDataElseLoad
+            request.cachePolicy = forceRefresh ? .reloadIgnoringLocalCacheData : .useProtocolCachePolicy
             request.timeoutInterval = 20
-            let (data, response) = try await URLSession.shared.data(for: request)
-            guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else {
-                throw URLError(.badServerResponse)
+            return try await cache.image(
+                for: url,
+                key: "reader-image|\(url.absoluteString)",
+                policy: forceRefresh ? .reloadIgnoringCache : .returnCacheElseLoad
+            ) {
+                let (data, response) = try await URLSession.shared.data(for: request)
+                guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else {
+                    throw URLError(.badServerResponse)
+                }
+                return data
             }
-            guard let image = UIImage(data: data) else {
-                throw URLError(.cannotDecodeContentData)
-            }
-            return image
         }
 
         inFlight[url] = task
 
         do {
             let image = try await task.value
-            cache.setObject(image, forKey: url as NSURL)
             inFlight[url] = nil
             return image
         } catch {
@@ -913,21 +925,33 @@ actor ReaderImagePipeline {
         }
     }
 
-    func prefetch(_ urls: [URL]) async {
+    func prefetch(_ urls: [URL], chapterID: String) async {
+        _ = chapterID
         for url in urls {
-            if cache.object(forKey: url as NSURL) != nil || inFlight[url] != nil {
+            if Task.isCancelled {
+                return
+            }
+            if inFlight[url] != nil {
                 continue
             }
             Task {
+                guard !Task.isCancelled else { return }
                 _ = try? await image(for: url, forceRefresh: false)
             }
         }
     }
 
-    func clear() {
-        cache.removeAllObjects()
+    func clear() async {
         inFlight.removeAll()
+        await cache.clear(.image)
     }
+}
+
+private enum ReaderContentLoadState: Equatable {
+    case idle
+    case loading
+    case loaded
+    case failed
 }
 
 private struct ReaderEmptyState: View {

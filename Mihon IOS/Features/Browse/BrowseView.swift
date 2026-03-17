@@ -119,75 +119,8 @@ struct SourceView: View {
 
     var body: some View {
         List {
-            Section {
-                NavigationLink {
-                    SourcePreferencesView(source: source)
-                } label: {
-                    Label("Source Preferences", systemImage: "slider.horizontal.3")
-                }
-
-                NavigationLink {
-                    SourceWebView(source: source)
-                } label: {
-                    Label("Open Source Website", systemImage: "safari")
-                }
-
-                if model.supportsLiveSource(source) {
-                    Button {
-                        showingFilters = true
-                    } label: {
-                        Label("Runtime Filters", systemImage: "line.3.horizontal.decrease.circle")
-                    }
-
-                    Picker("Feed", selection: $feedKind) {
-                        ForEach(SourceFeedKind.allCases) { kind in
-                            Text(kind.title).tag(kind)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                }
-
-                if source.kind == .local {
-                    Button {
-                        showingImporter = true
-                    } label: {
-                        Label("Import Local Files", systemImage: "square.and.arrow.down")
-                    }
-
-                    NavigationLink {
-                        LocalImportsView()
-                    } label: {
-                        Label("Local Imports", systemImage: "internaldrive")
-                    }
-                }
-            }
-
-            Section {
-                if isLoading {
-                    HStack {
-                        ProgressView()
-                        Text("Loading \(source.name)…")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                if let error = model.sourceError(for: source.id) {
-                    ContentUnavailableView("Source Error", systemImage: "wifi.exclamationmark", description: Text(error))
-                }
-
-                ForEach(displayedManga) { manga in
-                    NavigationLink {
-                        MangaDetailView(manga: manga)
-                    } label: {
-                        MangaRow(manga: manga)
-                    }
-                }
-            } header: {
-                Text(source.summary)
-                    .textCase(nil)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
+            sourceActionsSection
+            mangaSection
         }
         .searchable(text: $query, prompt: "Search manga")
         .navigationTitle(source.name)
@@ -225,6 +158,129 @@ struct SourceView: View {
                 )
             }
             .presentationDetents([.medium, .large])
+        }
+    }
+
+    private var sourceActionsSection: some View {
+        Section {
+            NavigationLink {
+                SourcePreferencesView(source: source)
+            } label: {
+                Label("Source Preferences", systemImage: "slider.horizontal.3")
+            }
+
+            NavigationLink {
+                SourceWebView(source: source)
+            } label: {
+                Label("Open Source Website", systemImage: "safari")
+            }
+
+            if model.supportsLiveSource(source) {
+                Button {
+                    showingFilters = true
+                } label: {
+                    Label("Runtime Filters", systemImage: "line.3.horizontal.decrease.circle")
+                }
+
+                Picker("Feed", selection: $feedKind) {
+                    ForEach(SourceFeedKind.allCases) { kind in
+                        Text(kind.title).tag(kind)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+
+            if source.kind == .local {
+                Button {
+                    showingImporter = true
+                } label: {
+                    Label("Import Local Files", systemImage: "square.and.arrow.down")
+                }
+
+                NavigationLink {
+                    LocalImportsView()
+                } label: {
+                    Label("Local Imports", systemImage: "internaldrive")
+                }
+            }
+        }
+    }
+
+    private var mangaSection: some View {
+        Section {
+            if isLoading {
+                ForEach(0..<6, id: \.self) { _ in
+                    loadingMangaRow
+                }
+            } else {
+                if let error = model.sourceError(for: source.id) {
+                    ContentUnavailableView("Source Error", systemImage: "wifi.exclamationmark", description: Text(error))
+                }
+
+                ForEach(displayedManga) { manga in
+                    mangaRowLink(for: manga)
+                }
+            }
+        } header: {
+            Text(source.summary)
+                .textCase(nil)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var loadingMangaRow: some View {
+        HStack(spacing: 14) {
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.secondary.opacity(0.1))
+                .frame(width: 56, height: 74)
+
+            VStack(alignment: .leading, spacing: 6) {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.secondary.opacity(0.1))
+                    .frame(width: 140, height: 16)
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.secondary.opacity(0.1))
+                    .frame(width: 100, height: 12)
+            }
+        }
+        .padding(.vertical, 4)
+        .redacted(reason: .placeholder)
+    }
+
+    private func mangaRowLink(for manga: Manga) -> some View {
+        let appModel = _model.wrappedValue
+        let isInLibrary = appModel.isInLibrary(manga)
+
+        return NavigationLink {
+            MangaDetailView(manga: manga)
+        } label: {
+            MangaRow(manga: manga)
+        }
+        .contextMenu {
+            Button {
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                appModel.toggleLibrary(manga)
+            } label: {
+                if isInLibrary {
+                    Label("Remove from Library", systemImage: "bookmark.slash")
+                } else {
+                    Label("Add to Library", systemImage: "bookmark")
+                }
+            }
+        }
+        .swipeActions(edge: .leading) {
+            Button {
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                appModel.toggleLibrary(manga)
+            } label: {
+                if isInLibrary {
+                    Label("Remove", systemImage: "bookmark.slash")
+                } else {
+                    Label("Add", systemImage: "bookmark")
+                }
+            }
+            .tint(isInLibrary ? .red : .blue)
         }
     }
 
@@ -444,12 +500,16 @@ struct LocalImportsView: View {
             }
 
             Section("Imported Titles") {
-                ForEach(model.mangas(for: model.source(for: "local-files") ?? model.sources.first(where: { $0.kind == .local })!)) { manga in
-                    NavigationLink {
-                        MangaDetailView(manga: manga)
-                    } label: {
-                        MangaRow(manga: manga)
+                if let localSource = model.primaryLocalSource() {
+                    ForEach(model.mangas(for: localSource)) { manga in
+                        NavigationLink {
+                            MangaDetailView(manga: manga)
+                        } label: {
+                            MangaRow(manga: manga)
+                        }
                     }
+                } else {
+                    ContentUnavailableView("Local source unavailable", systemImage: "externaldrive.badge.exclamationmark", description: Text("Restart the app or refresh sources before opening imported titles."))
                 }
             }
         }

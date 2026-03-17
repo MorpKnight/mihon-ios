@@ -59,7 +59,9 @@ struct AppChromeView: View {
                 if biometricLockEnabled {
                     Task { await model.unlockAppIfNeeded() }
                 }
-            case .inactive, .background:
+            case .inactive:
+                break
+            case .background:
                 if biometricLockEnabled {
                     model.lockAppIfNeeded()
                 }

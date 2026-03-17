@@ -113,10 +113,19 @@ struct LibraryBatchMigrationView: View {
     var body: some View {
         List {
             ForEach(model.libraryItems(selectedCategoryID: nil)) { item in
-                NavigationLink {
-                    MigrationConfirmationView(source: model.source(for: item.manga.sourceID) ?? model.sources[0], target: item.manga)
-                } label: {
-                    MangaRow(manga: item.manga)
+                if let source = model.migrationSource(for: item.manga) {
+                    NavigationLink {
+                        MigrationConfirmationView(source: source, target: item.manga)
+                    } label: {
+                        MangaRow(manga: item.manga)
+                    }
+                } else {
+                    VStack(alignment: .leading, spacing: 6) {
+                        MangaRow(manga: item.manga)
+                        Text("Migration unavailable because the source could not be resolved.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
         }

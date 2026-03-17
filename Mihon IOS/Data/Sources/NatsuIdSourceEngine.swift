@@ -25,18 +25,11 @@ final class NatsuIdSourceEngine: SourceRuntime {
     init(configuration: NatsuIdSourceConfiguration, session: URLSession = .shared) {
         self.configuration = configuration
         self.source = configuration.source
-        let config = URLSessionConfiguration.default
-        config.waitsForConnectivity = true
-        config.timeoutIntervalForRequest = 20
-        config.timeoutIntervalForResource = 30
-        config.httpCookieAcceptPolicy = .always
-        config.httpShouldSetCookies = true
-        config.requestCachePolicy = .reloadIgnoringLocalCacheData
-        config.httpAdditionalHeaders = [
+        let config = SourceEngineUtilities.sessionConfiguration(additionalHeaders: [
             "User-Agent": SourceEngineUtilities.defaultUserAgent,
             "Accept-Language": "en-US,en;q=0.9",
             "Accept": "*/*"
-        ]
+        ])
         self.session = URLSession(configuration: config)
         self.rateLimiter = SourceRateLimiter(requestsPerSecond: configuration.rateLimit)
     }
@@ -218,7 +211,7 @@ final class NatsuIdSourceEngine: SourceRuntime {
 
         urlRequest.httpBody = Self.multipartBody(fields: fields, boundary: boundary)
 
-        let data = try await perform(urlRequest)
+        let data = try await perform(urlRequest, ttl: 60 * 10)
         debugLog("advanced_search HTML preview: \(String(data: data.prefix(512), encoding: .utf8) ?? "<non-utf8>")")
         guard let html = String(data: data, encoding: .utf8) else {
             throw RuntimeSourceError.invalidResponse
@@ -234,7 +227,11 @@ final class NatsuIdSourceEngine: SourceRuntime {
 
         let data = try await getData(url: components.url!, contentType: "application/json")
         let response = try decoder.decode([NatsuMangaDTO].self, from: data)
-        let bySlug = Dictionary(uniqueKeysWithValues: response.map { ($0.slug, $0) })
+        let bySlug = response.reduce(into: [String: NatsuMangaDTO]()) { partialResult, entry in
+            if partialResult[entry.slug] == nil {
+                partialResult[entry.slug] = entry
+            }
+        }
 
         return slugs.compactMap { slug in
             guard let entry = bySlug[slug], !entry.isNovel else { return nil }
@@ -288,44 +285,23 @@ final class NatsuIdSourceEngine: SourceRuntime {
         if let contentType {
             request.setValue(contentType, forHTTPHeaderField: "Accept")
         }
-        return try await perform(request)
+        return try await perform(request, ttl: 60 * 30)
     }
 
-    private func perform(_ request: URLRequest) async throws -> Data {
-        let maxAttempts = 3
-        var lastError: Error?
-        for attempt in 1...maxAttempts {
-            await rateLimiter.waitTurn()
-            do {
-                let (data, response) = try await session.data(for: request)
-                guard let httpResponse = response as? HTTPURLResponse else {
-                    debugLog("No HTTPURLResponse for: \(request.url?.absoluteString ?? "<nil>")")
-                    throw RuntimeSourceError.invalidResponse
-                }
-
-                let urlString = request.url?.absoluteString ?? "<nil>"
-                let status = httpResponse.statusCode
-                let contentType = httpResponse.allHeaderFields["Content-Type"] as? String ?? "<unknown>"
-                let preview = String(data: data.prefix(512), encoding: .utf8) ?? "<non-utf8>"
-                debugLog("HTTP \(status) • \(contentType) • \(urlString)\n↳ Body preview: \(preview)")
-
-                if !(200..<300).contains(status) {
-                    if attempt < maxAttempts && (status == 403 || status == 429 || status == 503) {
-                        try? await Task.sleep(nanoseconds: 700_000_000)
-                        continue
-                    }
-                    throw RuntimeSourceError.invalidResponse
-                }
-                return data
-            } catch {
-                lastError = error
-                if attempt < maxAttempts {
-                    try? await Task.sleep(nanoseconds: 500_000_000)
-                    continue
-                }
-            }
-        }
-        throw lastError ?? RuntimeSourceError.invalidResponse
+    private func perform(_ request: URLRequest, ttl: TimeInterval) async throws -> Data {
+        await rateLimiter.waitTurn()
+        let key = SourceEngineUtilities.cacheKey(namespace: "natsuid", request: request)
+        let data = try await SourceEngineUtilities.data(
+            session: session,
+            request: request,
+            cacheKey: key,
+            ttl: ttl,
+            cachePolicy: .returnCacheElseLoad,
+            retryCount: 2
+        )
+        let preview = String(data: data.prefix(512), encoding: .utf8) ?? "<non-utf8>"
+        debugLog("HTTP cached/fetched • \(request.url?.absoluteString ?? "<nil>")\n↳ Body preview: \(preview)")
+        return data
     }
 
     private func mapManga(_ entry: NatsuMangaDTO, appendIdentifier: Bool) -> Manga {
