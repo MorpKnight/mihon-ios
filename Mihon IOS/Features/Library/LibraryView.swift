@@ -88,7 +88,7 @@ struct LibraryView: View {
                                             }
                                         }
                                         if model.state.libraryPreferences.showDownloadedBadge,
-                                           item.latestChapter?.isDownloaded == true {
+                                           model.isTitleDownloaded(manga: item.manga) {
                                             Label("Downloaded", systemImage: "arrow.down.circle.fill")
                                                 .font(.caption2)
                                                 .foregroundStyle(.teal)

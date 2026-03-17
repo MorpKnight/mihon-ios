@@ -16,6 +16,8 @@ struct MangaDetailView: View {
     @State private var displayManga: Manga
     @State private var loadedChapters: [Chapter]
     @State private var isLoading = false
+    @State private var showDownloadAllConfirm = false
+    @State private var showRemoveAllDownloadsConfirm = false
 
     init(manga: Manga) {
         self.manga = manga
@@ -74,6 +76,36 @@ struct MangaDetailView: View {
                     model.toggleLibrary(displayManga)
                 } label: {
                     Label(model.isInLibrary(displayManga) ? "Remove from Library" : "Add to Library", systemImage: model.isInLibrary(displayManga) ? "minus.circle" : "plus.circle")
+                }
+
+                if displayManga.sourceID != "local-files" {
+                    let titleJobs = model.downloadJobs.filter { $0.mangaID == displayManga.id && $0.sourceID == displayManga.sourceID }
+                    let chapterList = sortedChapters
+                    if !chapterList.isEmpty {
+                        Button {
+                            if chapterList.count > 20 {
+                                showDownloadAllConfirm = true
+                            } else {
+                                model.enqueueDownloadAllChapters(manga: displayManga, chapters: chapterList)
+                            }
+                        } label: {
+                            Label("Download all chapters", systemImage: "arrow.down.circle")
+                        }
+
+                        Button(role: .destructive) {
+                            if chapterList.count > 20 {
+                                showRemoveAllDownloadsConfirm = true
+                            } else {
+                                model.removeAllDownloads(manga: displayManga)
+                            }
+                        } label: {
+                            Label("Remove all downloads", systemImage: "trash")
+                        }
+                    }
+
+                    if !titleJobs.isEmpty {
+                        MangaDownloadAggregateView(jobs: titleJobs)
+                    }
                 }
 
                 if model.isInLibrary(displayManga) {
@@ -193,8 +225,62 @@ struct MangaDetailView: View {
                             Text(chapter.releaseDate.formatted(date: .abbreviated, time: .omitted))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+
+                            if !chapter.isDownloaded, let job = model.downloadJob(for: displayManga, chapter: chapter) {
+                                ChapterDownloadInlineStatusView(job: job)
+                            }
                         }
                         .padding(.vertical, 2)
+                    }
+                    .contextMenu {
+                        if displayManga.sourceID == "local-files" {
+                            EmptyView()
+                        } else
+                        if chapter.isDownloaded {
+                            Button(role: .destructive) {
+                                model.removeDownloaded(manga: displayManga, chapter: chapter)
+                            } label: {
+                                Label("Remove download", systemImage: "trash")
+                            }
+                        } else if let job = model.downloadJob(for: displayManga, chapter: chapter) {
+                            switch job.state {
+                            case .queued, .downloading:
+                                Button(role: .destructive) {
+                                    model.cancelDownload(jobID: job.id)
+                                } label: {
+                                    Label("Cancel download", systemImage: "xmark.circle")
+                                }
+                            case .failed:
+                                Button {
+                                    model.retryDownload(jobID: job.id)
+                                } label: {
+                                    Label("Retry download", systemImage: "arrow.clockwise")
+                                }
+                                Button(role: .destructive) {
+                                    model.cancelDownload(jobID: job.id)
+                                } label: {
+                                    Label("Cancel download", systemImage: "xmark.circle")
+                                }
+                            case .complete:
+                                Button(role: .destructive) {
+                                    model.removeDownloaded(manga: displayManga, chapter: chapter)
+                                } label: {
+                                    Label("Remove download", systemImage: "trash")
+                                }
+                            case .paused:
+                                Button(role: .destructive) {
+                                    model.cancelDownload(jobID: job.id)
+                                } label: {
+                                    Label("Cancel download", systemImage: "xmark.circle")
+                                }
+                            }
+                        } else {
+                            Button {
+                                model.enqueueDownload(manga: displayManga, chapter: chapter)
+                            } label: {
+                                Label("Download", systemImage: "arrow.down.circle")
+                            }
+                        }
                     }
                 }
             }
@@ -204,6 +290,27 @@ struct MangaDetailView: View {
         .toolbar(.hidden, for: .tabBar)
         .sheet(isPresented: $showCover) {
             CoverSheet(manga: displayManga)
+        }
+        .confirmationDialog("Download all chapters?", isPresented: $showDownloadAllConfirm) {
+            Button("Download all", role: .none) {
+                model.enqueueDownloadAllChapters(manga: displayManga, chapters: sortedChapters)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will enqueue up to \(sortedChapters.count) chapter downloads.")
+        }
+        .confirmationDialog("Remove all downloads?", isPresented: $showRemoveAllDownloadsConfirm) {
+            Button("Remove all", role: .destructive) {
+                model.removeAllDownloads(manga: displayManga)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will delete offline files for \(sortedChapters.count) chapters.")
+        }
+        .onChange(of: model.chapterCache[displayManga.id]) { _, newValue in
+            if let newValue, !newValue.isEmpty {
+                loadedChapters = newValue
+            }
         }
         .task {
             noteDraft = model.note(for: displayManga)
@@ -215,6 +322,95 @@ struct MangaDetailView: View {
             displayManga = await model.refreshMangaDetails(for: displayManga)
             loadedChapters = await model.refreshChapters(for: displayManga)
             isLoading = false
+        }
+    }
+}
+
+private struct MangaDownloadAggregateView: View {
+    let jobs: [DownloadJob]
+
+    private var total: Int { jobs.count }
+    private var completed: Int { jobs.filter { $0.state == .complete }.count }
+    private var failed: Int { jobs.filter { $0.state == .failed }.count }
+
+    private var progress: Double {
+        guard total > 0 else { return 0 }
+        let sum = jobs.reduce(0.0) { partial, job in
+            switch job.state {
+            case .complete:
+                return partial + 1
+            case .downloading:
+                return partial + min(max(job.progress, 0), 1)
+            case .queued, .paused, .failed:
+                return partial
+            }
+        }
+        return min(max(sum / Double(total), 0), 1)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Download Progress")
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                Text("\(completed)/\(total)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            ProgressView(value: progress)
+            if failed > 0 {
+                Text("\(failed) failed")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+private struct ChapterDownloadInlineStatusView: View {
+    @EnvironmentObject private var model: AppModel
+    let job: DownloadJob
+
+    var body: some View {
+        HStack(spacing: 10) {
+            switch job.state {
+            case .queued:
+                ProgressView()
+                    .scaleEffect(0.85)
+                Text("Queued")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            case .downloading:
+                ProgressView(value: min(max(job.progress, 0), 1))
+                    .frame(maxWidth: 180)
+                Text("\(Int(job.progress * 100))%")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            case .paused:
+                Image(systemName: "pause.circle")
+                    .foregroundStyle(.secondary)
+                Text("Paused")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            case .failed:
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.red)
+                Text("Failed")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                Button {
+                    model.retryDownload(jobID: job.id)
+                } label: {
+                    Text("Retry")
+                        .font(.caption.weight(.semibold))
+                }
+                .buttonStyle(.borderless)
+            case .complete:
+                EmptyView()
+            }
+            Spacer(minLength: 0)
         }
     }
 }
