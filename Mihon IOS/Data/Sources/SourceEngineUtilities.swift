@@ -16,6 +16,7 @@ enum RuntimeSourceError: LocalizedError {
     case parserEmpty
     case blockedImageHost
     case unsupportedChapterMarkup
+    case invalidURL
 
     var errorDescription: String? {
         switch self {
@@ -35,6 +36,8 @@ enum RuntimeSourceError: LocalizedError {
             return "The chapter pages are served from an unsupported image host."
         case .unsupportedChapterMarkup:
             return "This chapter uses markup the current Kiryuu parser does not understand yet."
+        case .invalidURL:
+            return "Failed to construct a valid URL for the request."
         }
     }
 }

@@ -42,23 +42,30 @@ final class AsuraAPISourceEngine: SourceRuntime {
     // MARK: - Public API
 
     func popularManga(page: Int) async throws -> [Manga] {
-        let htmlURL = URL(string: baseURL + "/series?genres=&status=-1&types=-1&order=rating&page=\(page)")!
+        guard let htmlURL = URL(string: baseURL + "/series?genres=&status=-1&types=-1&order=rating&page=\(page)") else {
+            throw RuntimeSourceError.invalidURL
+        }
         let html = try await getHTML(url: htmlURL)
         return AsuraHTMLSourceEngine.mapSeriesList(html: html, sourceID: source.id)
     }
 
     func latestManga(page: Int) async throws -> [Manga] {
-        let htmlURL = URL(string: baseURL + "/page/\(page)")!
+        guard let htmlURL = URL(string: baseURL + "/page/\(page)") else {
+            throw RuntimeSourceError.invalidURL
+        }
         let html = try await getHTML(url: htmlURL)
         return AsuraHTMLSourceEngine.mapSeriesList(html: html, sourceID: source.id)
     }
 
     func searchManga(_ request: SourceSearchRequest) async throws -> [Manga] {
-        var components = URLComponents(string: baseURL + "/series")!
+        guard var components = URLComponents(string: baseURL + "/series") else {
+            throw RuntimeSourceError.invalidURL
+        }
         components.queryItems = [URLQueryItem(name: "page", value: String(request.page))]
         let q = request.query.trimmingCharacters(in: .whitespacesAndNewlines)
         if !q.isEmpty { components.queryItems?.append(URLQueryItem(name: "name", value: q)) }
-        let html = try await getHTML(url: components.url!)
+        guard let searchURL = components.url else { throw RuntimeSourceError.invalidURL }
+        let html = try await getHTML(url: searchURL)
         return AsuraHTMLSourceEngine.mapSeriesList(html: html, sourceID: source.id)
     }
 
@@ -66,7 +73,9 @@ final class AsuraAPISourceEngine: SourceRuntime {
         let slug = SourceEngineUtilities.slug(from: mangaIDOrURL)
         debugLog("mangaDetails for slug: \(slug)")
         
-        let seriesURL = URL(string: baseURL + "/series/\(slug)")!
+        guard let seriesURL = URL(string: baseURL + "/series/\(slug)") else {
+            throw RuntimeSourceError.invalidURL
+        }
         debugLog("Fetching series page: \(seriesURL.absoluteString)")
         let html = try await getHTML(url: seriesURL)
         
@@ -223,7 +232,9 @@ final class AsuraAPISourceEngine: SourceRuntime {
         // First, try using the API directly
         do {
             debugLog("Trying API endpoint for chapters...")
-            let apiURL = URL(string: "\(apiBaseURL)/api/series/\(slug)/chapters")!
+            guard let apiURL = URL(string: "\(apiBaseURL)/api/series/\(slug)/chapters") else {
+                throw RuntimeSourceError.invalidURL
+            }
             let (data, response) = try await session.data(from: apiURL)
             
             if let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) {
@@ -278,7 +289,9 @@ final class AsuraAPISourceEngine: SourceRuntime {
         }
         
         // Fall back to HTML scraping
-        let seriesURL = URL(string: baseURL + "/series/\(slug)")!
+        guard let seriesURL = URL(string: baseURL + "/series/\(slug)") else {
+            throw RuntimeSourceError.invalidURL
+        }
         let html = try await getHTML(url: seriesURL)
         
         debugLog("HTML length: \(html.count) characters")
@@ -670,9 +683,12 @@ final class AsuraAPISourceEngine: SourceRuntime {
     }
 
     private func getJSON(path: String, queryItems: [URLQueryItem] = []) async throws -> Data {
-        var components = URLComponents(string: apiBaseURL + path)!
+        guard var components = URLComponents(string: apiBaseURL + path) else {
+            throw RuntimeSourceError.invalidURL
+        }
         components.queryItems = queryItems
-        var request = URLRequest(url: components.url!)
+        guard let requestURL = components.url else { throw RuntimeSourceError.invalidURL }
+        var request = URLRequest(url: requestURL)
         request.setValue(baseURL + "/", forHTTPHeaderField: "Referer")
         if let xsrf = await xsrfToken() {
             request.setValue(xsrf, forHTTPHeaderField: "x-xsrf-token")

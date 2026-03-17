@@ -443,12 +443,14 @@ struct LocalImportsView: View {
                 }
             }
 
-            Section("Imported Titles") {
-                ForEach(model.mangas(for: model.source(for: "local-files") ?? model.sources.first(where: { $0.kind == .local })!)) { manga in
-                    NavigationLink {
-                        MangaDetailView(manga: manga)
-                    } label: {
-                        MangaRow(manga: manga)
+            if let localSource = model.source(for: "local-files") ?? model.sources.first(where: { $0.kind == .local }) {
+                Section("Imported Titles") {
+                    ForEach(model.mangas(for: localSource)) { manga in
+                        NavigationLink {
+                            MangaDetailView(manga: manga)
+                        } label: {
+                            MangaRow(manga: manga)
+                        }
                     }
                 }
             }

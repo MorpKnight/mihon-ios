@@ -201,8 +201,8 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
     }
 
     func jobs() -> [DownloadJob] {
-        importRecords.flatMap { record in
-            let manga = localContentRepository.mangas(from: [record], sourceID: "local-files").first!
+        importRecords.compactMap { record -> [DownloadJob]? in
+            guard let manga = localContentRepository.mangas(from: [record], sourceID: "local-files").first else { return nil }
             return localContentRepository.chapters(for: record.title.id, from: [record]).map { chapter in
                 let pending = record.title.kind == .cbz || record.title.kind == .zip || record.title.kind == .epub
                 return DownloadJob(
@@ -213,7 +213,7 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
                     state: pending ? .queued : .complete
                 )
             }
-        }
+        }.flatMap { $0 }
     }
 
     func createPayload() -> BackupPayload {

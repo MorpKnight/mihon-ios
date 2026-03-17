@@ -112,15 +112,17 @@ struct MangaDetailView: View {
                     Label("Notes", systemImage: "note.text")
                 }
 
-                NavigationLink {
-                    MigrationConfirmationView(source: model.source(for: displayManga.sourceID) ?? model.sources[0], target: displayManga)
-                } label: {
-                    Label("Migrate Title", systemImage: "arrow.triangle.swap")
-                }
+                if let mangaSource = model.source(for: displayManga.sourceID) ?? model.sources.first {
+                    NavigationLink {
+                        MigrationConfirmationView(source: mangaSource, target: displayManga)
+                    } label: {
+                        Label("Migrate Title", systemImage: "arrow.triangle.swap")
+                    }
 
-                if let webURL = model.sourceWebURL(for: model.source(for: displayManga.sourceID) ?? model.sources[0], manga: displayManga) {
-                    Link(destination: webURL) {
-                        Label("Open in Web", systemImage: "safari")
+                    if let webURL = model.sourceWebURL(for: mangaSource, manga: displayManga) {
+                        Link(destination: webURL) {
+                            Label("Open in Web", systemImage: "safari")
+                        }
                     }
                 }
 
