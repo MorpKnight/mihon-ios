@@ -500,12 +500,16 @@ struct LocalImportsView: View {
             }
 
             Section("Imported Titles") {
-                ForEach(model.mangas(for: model.source(for: "local-files") ?? model.sources.first(where: { $0.kind == .local })!)) { manga in
-                    NavigationLink {
-                        MangaDetailView(manga: manga)
-                    } label: {
-                        MangaRow(manga: manga)
+                if let localSource = model.primaryLocalSource() {
+                    ForEach(model.mangas(for: localSource)) { manga in
+                        NavigationLink {
+                            MangaDetailView(manga: manga)
+                        } label: {
+                            MangaRow(manga: manga)
+                        }
                     }
+                } else {
+                    ContentUnavailableView("Local source unavailable", systemImage: "externaldrive.badge.exclamationmark", description: Text("Restart the app or refresh sources before opening imported titles."))
                 }
             }
         }

@@ -646,6 +646,8 @@ enum DiagnosticLogKind: String, Codable, CaseIterable, Hashable, Identifiable {
     case source
     case reader
     case security
+    case cache
+    case stateTransition
 
     var id: String { rawValue }
 }

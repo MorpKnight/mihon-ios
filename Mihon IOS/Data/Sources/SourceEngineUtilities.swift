@@ -3,6 +3,7 @@
 //  Mihon IOS
 //
 
+import CryptoKit
 import Foundation
 
 // MARK: - Shared Error Type
@@ -65,6 +66,86 @@ actor SourceRateLimiter {
 enum SourceEngineUtilities {
 
     static let defaultUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1 Mihon-iOS/1.0"
+    static let sharedURLCache = URLCache(
+        memoryCapacity: 48 * 1_024 * 1_024,
+        diskCapacity: 160 * 1_024 * 1_024
+    )
+
+    static func sessionConfiguration(additionalHeaders: [String: String]) -> URLSessionConfiguration {
+        let config = URLSessionConfiguration.default
+        config.waitsForConnectivity = true
+        config.timeoutIntervalForRequest = 20
+        config.timeoutIntervalForResource = 30
+        config.httpCookieAcceptPolicy = .always
+        config.httpShouldSetCookies = true
+        config.requestCachePolicy = .useProtocolCachePolicy
+        config.urlCache = sharedURLCache
+        config.httpMaximumConnectionsPerHost = 6
+        config.httpAdditionalHeaders = additionalHeaders
+        return config
+    }
+
+    static func cacheKey(namespace: String, request: URLRequest, suffix: String? = nil) -> String {
+        let method = request.httpMethod ?? "GET"
+        let url = request.url?.absoluteString ?? "unknown"
+        let bodyDigest: String
+        if let body = request.httpBody, !body.isEmpty {
+            bodyDigest = digest(body)
+        } else {
+            bodyDigest = "no-body"
+        }
+        if let suffix, !suffix.isEmpty {
+            return "\(namespace)|\(method)|\(url)|\(bodyDigest)|\(suffix)"
+        }
+        return "\(namespace)|\(method)|\(url)|\(bodyDigest)"
+    }
+
+    static func data(
+        session: URLSession,
+        request: URLRequest,
+        cacheKey: String,
+        ttl: TimeInterval,
+        cachePolicy: CachePolicy = .returnCacheElseLoad,
+        retryCount: Int = 1,
+        acceptedContentTypes: [String] = [],
+        validateResponse: Bool = true
+    ) async throws -> Data {
+        try await AppCacheController.shared.data(
+            for: cacheKey,
+            domain: .networkResponse,
+            policy: cachePolicy,
+            ttl: ttl
+        ) {
+            try await loadData(
+                session: session,
+                request: request,
+                retryCount: retryCount,
+                acceptedContentTypes: acceptedContentTypes,
+                validateResponse: validateResponse
+            )
+        }
+    }
+
+    static func html(
+        session: URLSession,
+        request: URLRequest,
+        cacheKey: String,
+        ttl: TimeInterval,
+        cachePolicy: CachePolicy = .returnCacheElseLoad
+    ) async throws -> String {
+        let data = try await data(
+            session: session,
+            request: request,
+            cacheKey: cacheKey,
+            ttl: ttl,
+            cachePolicy: cachePolicy,
+            retryCount: 1
+        )
+        guard let html = String(data: data, encoding: .utf8) else {
+            throw RuntimeSourceError.invalidResponse
+        }
+        return html
+    }
 
     static func stripHTML(_ html: String) -> String {
         let withoutTags = html.replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
@@ -148,5 +229,45 @@ enum SourceEngineUtilities {
 
     static func titleFromSlug(_ slug: String) -> String {
         slug.replacingOccurrences(of: "-", with: " ").capitalized
+    }
+
+    static func digest(_ data: Data) -> String {
+        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
+
+    private static func loadData(
+        session: URLSession,
+        request: URLRequest,
+        retryCount: Int,
+        acceptedContentTypes: [String],
+        validateResponse: Bool
+    ) async throws -> Data {
+        var attempts = 0
+        var lastError: Error?
+
+        while attempts <= retryCount {
+            do {
+                let (data, response) = try await session.data(for: request)
+                if validateResponse {
+                    guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else {
+                        throw RuntimeSourceError.invalidResponse
+                    }
+                    if !acceptedContentTypes.isEmpty,
+                       let contentType = http.value(forHTTPHeaderField: "Content-Type"),
+                       !acceptedContentTypes.contains(where: { contentType.localizedCaseInsensitiveContains($0) }) {
+                        throw RuntimeSourceError.invalidResponse
+                    }
+                }
+                return data
+            } catch {
+                lastError = error
+                attempts += 1
+                if attempts <= retryCount {
+                    try? await Task.sleep(nanoseconds: 250_000_000)
+                }
+            }
+        }
+
+        throw lastError ?? RuntimeSourceError.invalidResponse
     }
 }

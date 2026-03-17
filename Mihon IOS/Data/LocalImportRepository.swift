@@ -4,10 +4,38 @@
 //
 
 import Foundation
+import ImageIO
 
 struct ImportResult {
     let records: [ImportRecord]
     let jobs: [ImportJob]
+    let failures: [ImportFailure]
+}
+
+struct ImportFailure: Identifiable, Hashable {
+    let id = UUID()
+    let fileName: String
+    let reason: String
+}
+
+enum LocalImportError: LocalizedError {
+    case duplicateItem(String)
+    case emptyDirectory(String)
+    case invalidImage(String)
+    case unsupportedFile(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .duplicateItem(let name):
+            return "\(name) is already imported."
+        case .emptyDirectory(let name):
+            return "\(name) does not contain readable image pages."
+        case .invalidImage(let name):
+            return "\(name) is not a readable image."
+        case .unsupportedFile(let name):
+            return "\(name) is not a supported import type."
+        }
+    }
 }
 
 final class FileImportRepository: ImportRepository {
@@ -30,35 +58,60 @@ final class FileImportRepository: ImportRepository {
     func importItems(from urls: [URL]) throws -> ImportResult {
         var snapshot = coordinator.loadSnapshot()
         let importedAt = Date()
+        var failures: [ImportFailure] = []
 
         for url in urls {
-            let record = try makeRecord(from: url, importedAt: importedAt)
-            snapshot.imports.removeAll { $0.id == record.id }
-            snapshot.imports.insert(record, at: 0)
+            do {
+                if snapshot.imports.contains(where: { $0.title.originalPath == url.path }) {
+                    throw LocalImportError.duplicateItem(url.lastPathComponent)
+                }
+                let record = try makeRecord(from: url, importedAt: importedAt)
+                snapshot.imports.removeAll { $0.id == record.id }
+                snapshot.imports.insert(record, at: 0)
 
-            let kind = record.title.kind
-            let status: ImportStatus = switch kind {
-            case .cbz, .zip, .epub: .pendingExtraction
-            case .folder, .image: .ready
-            case .unsupported: .failed
+                let kind = record.title.kind
+                let status: ImportStatus = switch kind {
+                case .cbz, .zip, .epub: .pendingExtraction
+                case .folder, .image: .ready
+                case .unsupported: .failed
+                }
+                snapshot.importJobs.insert(
+                    ImportJob(
+                        id: UUID(),
+                        fileName: url.lastPathComponent,
+                        kind: kind,
+                        status: status,
+                        createdAt: importedAt,
+                        importedTitleID: record.title.id,
+                        detail: status == .ready ? "Imported into Local Files." : "Imported metadata. Archive extraction remains pending."
+                    ),
+                    at: 0
+                )
+            } catch {
+                failures.append(
+                    ImportFailure(
+                        fileName: url.lastPathComponent,
+                        reason: error.localizedDescription
+                    )
+                )
+                snapshot.importJobs.insert(
+                    ImportJob(
+                        id: UUID(),
+                        fileName: url.lastPathComponent,
+                        kind: detectKind(url),
+                        status: .failed,
+                        createdAt: importedAt,
+                        importedTitleID: nil,
+                        detail: error.localizedDescription
+                    ),
+                    at: 0
+                )
             }
-            snapshot.importJobs.insert(
-                ImportJob(
-                    id: UUID(),
-                    fileName: url.lastPathComponent,
-                    kind: kind,
-                    status: status,
-                    createdAt: importedAt,
-                    importedTitleID: record.title.id,
-                    detail: status == .ready ? "Imported into Local Files." : "Imported metadata. Archive extraction remains pending."
-                ),
-                at: 0
-            )
         }
 
         snapshot.importJobs = Array(snapshot.importJobs.prefix(50))
         coordinator.saveSnapshot(snapshot)
-        return ImportResult(records: snapshot.imports, jobs: snapshot.importJobs)
+        return ImportResult(records: snapshot.imports, jobs: snapshot.importJobs, failures: failures)
     }
 
     private func makeRecord(from url: URL, importedAt: Date) throws -> ImportRecord {
@@ -77,8 +130,10 @@ final class FileImportRepository: ImportRepository {
             return try importDirectory(url, titleID: titleID, destinationDirectory: titleDirectory, importedAt: importedAt)
         case .image:
             return try importSingleImage(url, titleID: titleID, destinationDirectory: titleDirectory, importedAt: importedAt)
-        case .cbz, .zip, .epub, .unsupported:
+        case .cbz, .zip, .epub:
             return try importArchiveStub(url, kind: kind, titleID: titleID, destinationDirectory: titleDirectory, importedAt: importedAt)
+        case .unsupported:
+            throw LocalImportError.unsupportedFile(url.lastPathComponent)
         }
     }
 
@@ -96,6 +151,12 @@ final class FileImportRepository: ImportRepository {
             try fileManager.createDirectory(at: chapterDestination, withIntermediateDirectories: true, attributes: nil)
 
             let images = try imageFiles(in: chapterURL)
+            guard !images.isEmpty else {
+                if directories.isEmpty {
+                    throw LocalImportError.emptyDirectory(url.lastPathComponent)
+                }
+                continue
+            }
             var assetIDs: [String] = []
 
             for (imageIndex, imageURL) in images.enumerated() {
@@ -131,6 +192,9 @@ final class FileImportRepository: ImportRepository {
         }
 
         let coverPath = assets.first?.filePath
+        guard !chapters.isEmpty, !assets.isEmpty else {
+            throw LocalImportError.emptyDirectory(url.lastPathComponent)
+        }
         let title = ImportedTitle(
             id: titleID,
             title: url.lastPathComponent,
@@ -151,6 +215,7 @@ final class FileImportRepository: ImportRepository {
         let chapterID = "\(titleID)-chapter-1"
         let chapterDestination = destinationDirectory.appendingPathComponent(chapterID, isDirectory: true)
         try fileManager.createDirectory(at: chapterDestination, withIntermediateDirectories: true, attributes: nil)
+        try validateImage(at: url)
         let copiedURL = chapterDestination.appendingPathComponent(url.lastPathComponent)
         if fileManager.fileExists(atPath: copiedURL.path) {
             try? fileManager.removeItem(at: copiedURL)
@@ -260,6 +325,13 @@ final class FileImportRepository: ImportRepository {
     private func imageAccent(index: Int) -> String {
         let palette = ["#5C8CFF", "#3C8D7B", "#7A5CFF", "#D56F3E", "#2D79C7"]
         return palette[index % palette.count]
+    }
+
+    private func validateImage(at url: URL) throws {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+              CGImageSourceGetCount(source) > 0 else {
+            throw LocalImportError.invalidImage(url.lastPathComponent)
+        }
     }
 }
 

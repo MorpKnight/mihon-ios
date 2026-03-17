@@ -14,19 +14,12 @@ final class AsuraHTMLSourceEngine: SourceRuntime {
     init(source: Source, baseURL: String) {
         self.source = source
         self.baseURL = baseURL
-        let config = URLSessionConfiguration.default
-        config.waitsForConnectivity = true
-        config.timeoutIntervalForRequest = 20
-        config.timeoutIntervalForResource = 30
-        config.httpCookieAcceptPolicy = .always
-        config.httpShouldSetCookies = true
-        config.requestCachePolicy = .reloadIgnoringLocalCacheData
-        config.httpAdditionalHeaders = [
+        let config = SourceEngineUtilities.sessionConfiguration(additionalHeaders: [
             "User-Agent": SourceEngineUtilities.defaultUserAgent,
             "Accept-Language": "en-US,en;q=0.9",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "Referer": baseURL + "/"
-        ]
+        ])
         self.session = URLSession(configuration: config)
     }
 
@@ -86,14 +79,14 @@ final class AsuraHTMLSourceEngine: SourceRuntime {
 
     private func getHTML(url: URL) async throws -> String {
         await rateLimiter.waitTurn()
-        let (data, response) = try await session.data(from: url)
-        guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else {
-            throw RuntimeSourceError.invalidResponse
-        }
-        guard let html = String(data: data, encoding: .utf8) else {
-            throw RuntimeSourceError.invalidResponse
-        }
-        return html
+        let request = URLRequest(url: url)
+        let key = SourceEngineUtilities.cacheKey(namespace: "asura-html", request: request)
+        return try await SourceEngineUtilities.html(
+            session: session,
+            request: request,
+            cacheKey: key,
+            ttl: 60 * 15
+        )
     }
 
     // MARK: - Shared HTML parsing (used by AsuraAPISourceEngine)

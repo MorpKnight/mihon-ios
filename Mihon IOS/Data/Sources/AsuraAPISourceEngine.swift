@@ -23,19 +23,12 @@ final class AsuraAPISourceEngine: SourceRuntime {
         self.source = source
         self.baseURL = baseURL
         self.apiBaseURL = apiBaseURL
-        let config = URLSessionConfiguration.default
-        config.waitsForConnectivity = true
-        config.timeoutIntervalForRequest = 20
-        config.timeoutIntervalForResource = 30
-        config.httpCookieAcceptPolicy = .always
-        config.httpShouldSetCookies = true
-        config.requestCachePolicy = .reloadIgnoringLocalCacheData
-        config.httpAdditionalHeaders = [
+        let config = SourceEngineUtilities.sessionConfiguration(additionalHeaders: [
             "User-Agent": SourceEngineUtilities.defaultUserAgent,
             "Accept-Language": "en-US,en;q=0.9",
             "Accept": "application/json, text/html;q=0.1,*/*;q=0.1",
             "Referer": baseURL + "/"
-        ]
+        ])
         self.session = URLSession(configuration: config)
     }
 
@@ -223,10 +216,8 @@ final class AsuraAPISourceEngine: SourceRuntime {
         // First, try using the API directly
         do {
             debugLog("Trying API endpoint for chapters...")
-            let apiURL = URL(string: "\(apiBaseURL)/api/series/\(slug)/chapters")!
-            let (data, response) = try await session.data(from: apiURL)
-            
-            if let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) {
+            let data = try await getJSON(path: "/api/series/\(slug)/chapters", ttl: 60 * 15)
+            if !data.isEmpty {
                 debugLog("Got response from chapters API")
                 
                 struct ChaptersResponse: Decodable {
@@ -520,25 +511,7 @@ final class AsuraAPISourceEngine: SourceRuntime {
         debugLog("Chapter URL: \(url.absoluteString)")
         
         do {
-            await rateLimiter.waitTurn()
-            let (data, response) = try await session.data(from: url)
-            
-            guard let http = response as? HTTPURLResponse else {
-                debugLog("No HTTPURLResponse")
-                throw RuntimeSourceError.invalidResponse
-            }
-            
-            debugLog("HTTP status: \(http.statusCode)")
-            
-            guard (200..<300).contains(http.statusCode) else {
-                debugLog("Bad status code: \(http.statusCode)")
-                throw RuntimeSourceError.invalidResponse
-            }
-            
-            guard let html = String(data: data, encoding: .utf8) else {
-                debugLog("Could not decode HTML as UTF-8")
-                throw RuntimeSourceError.invalidResponse
-            }
+            let html = try await getHTML(url: url, ttl: 60 * 30)
             
             debugLog("HTML length: \(html.count) characters")
             
@@ -661,15 +634,19 @@ final class AsuraAPISourceEngine: SourceRuntime {
 
     // MARK: - Networking utils
 
-    private func getHTML(url: URL) async throws -> String {
+    private func getHTML(url: URL, ttl: TimeInterval = 60 * 15) async throws -> String {
         await rateLimiter.waitTurn()
-        let (data, response) = try await session.data(from: url)
-        guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else { throw RuntimeSourceError.invalidResponse }
-        guard let html = String(data: data, encoding: .utf8) else { throw RuntimeSourceError.invalidResponse }
-        return html
+        let request = URLRequest(url: url)
+        let key = SourceEngineUtilities.cacheKey(namespace: "asura-api-html", request: request)
+        return try await SourceEngineUtilities.html(
+            session: session,
+            request: request,
+            cacheKey: key,
+            ttl: ttl
+        )
     }
 
-    private func getJSON(path: String, queryItems: [URLQueryItem] = []) async throws -> Data {
+    private func getJSON(path: String, queryItems: [URLQueryItem] = [], ttl: TimeInterval = 60 * 10) async throws -> Data {
         var components = URLComponents(string: apiBaseURL + path)!
         components.queryItems = queryItems
         var request = URLRequest(url: components.url!)
@@ -678,8 +655,15 @@ final class AsuraAPISourceEngine: SourceRuntime {
             request.setValue(xsrf, forHTTPHeaderField: "x-xsrf-token")
         }
         await rateLimiter.waitTurn()
-        let (data, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else { throw RuntimeSourceError.invalidResponse }
-        return data
+        let key = SourceEngineUtilities.cacheKey(namespace: "asura-api-json", request: request)
+        return try await SourceEngineUtilities.data(
+            session: session,
+            request: request,
+            cacheKey: key,
+            ttl: ttl,
+            cachePolicy: .returnCacheElseLoad,
+            retryCount: 1,
+            acceptedContentTypes: ["application/json", "text/json"]
+        )
     }
 }
