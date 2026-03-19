@@ -63,6 +63,8 @@ final class LRUMemoryCache<Key: Hashable, Value: AnyObject>: @unchecked Sendable
     private var _totalCost: Int = 0
     private var memoryWarningObserver: NSObjectProtocol?
 
+    var onEvict: ((Key) -> Void)?
+
     // MARK: - Public interface
 
     var count: Int {
@@ -156,15 +158,7 @@ final class LRUMemoryCache<Key: Hashable, Value: AnyObject>: @unchecked Sendable
     }
 
     func removeObject(forKey key: Key) {
-        lock.lock()
-        guard let node = map[key] else {
-            lock.unlock()
-            return
-        }
-        removeNode(node)
-        map[key] = nil
-        _totalCost -= node.cost
-        lock.unlock()
+        removeObject(forKey: key, notify: true)
     }
 
     func removeAllObjects() {
@@ -225,15 +219,39 @@ final class LRUMemoryCache<Key: Hashable, Value: AnyObject>: @unchecked Sendable
     private func evictIfNeeded() {
         lock.lock()
         while map.count > _countLimit, let lru = tail {
+            let key = lru.key
             removeNode(lru)
-            map[lru.key] = nil
+            map[key] = nil
             _totalCost -= lru.cost
+            let callback = onEvict
+            lock.unlock()
+            callback?(key)
+            lock.lock()
         }
         while _totalCost > _totalCostLimit, let lru = tail {
+            let key = lru.key
             removeNode(lru)
-            map[lru.key] = nil
+            map[key] = nil
             _totalCost -= lru.cost
+            let callback = onEvict
+            lock.unlock()
+            callback?(key)
+            lock.lock()
         }
         lock.unlock()
+    }
+
+    private func removeObject(forKey key: Key, notify: Bool) {
+        lock.lock()
+        guard let node = map[key] else {
+            lock.unlock()
+            return
+        }
+        removeNode(node)
+        map[key] = nil
+        _totalCost -= node.cost
+        let callback = notify ? onEvict : nil
+        lock.unlock()
+        callback?(key)
     }
 }

@@ -28,7 +28,7 @@ extension AppModel {
         let items: [Manga]
         if source.kind == .local {
             items = localContentRepository.mangas(from: importRecords, sourceID: source.id)
-        } else if let cached = sourceMangaCache[source.id], !cached.isEmpty {
+        } else if let cached = cachedSourceManga(for: source.id), !cached.isEmpty {
             items = cached
         } else {
             items = repository.mangas(for: source.id)
@@ -43,7 +43,7 @@ extension AppModel {
         if manga.sourceID == "local-files" {
             return localContentRepository.chapters(for: manga.id, from: importRecords)
         }
-        if let cached = chapterCache[manga.id], !cached.isEmpty {
+        if let cached = cachedChapters(for: manga.id), !cached.isEmpty {
             return cached
         }
         return repository.chapters(for: manga.id)
@@ -75,4 +75,3 @@ extension AppModel {
         return score
     }
 }
-

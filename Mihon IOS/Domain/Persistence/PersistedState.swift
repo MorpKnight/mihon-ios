@@ -6,7 +6,7 @@
 import Foundation
 
 struct PersistedState: Codable, Hashable {
-    static let currentSchemaVersion = 5
+    static let currentSchemaVersion = 6
 
     var schemaVersion: Int
     var categories: [Category]
@@ -178,5 +178,27 @@ struct PersistedState: Codable, Hashable {
         onboardingCompleted = try container.decodeIfPresent(Bool.self, forKey: .onboardingCompleted) ?? false
         sourceRepos = try container.decodeIfPresent([String].self, forKey: .sourceRepos) ?? defaults.sourceRepos
         persistedMangas = try container.decodeIfPresent([Manga].self, forKey: .persistedMangas) ?? [] // Added
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(schemaVersion, forKey: .schemaVersion)
+        try container.encode(categories, forKey: .categories)
+        try container.encode(library, forKey: .library)
+        try container.encode(progress, forKey: .progress)
+        try container.encode(history, forKey: .history)
+        try container.encode(updatesLastSeenChapterIDByMangaID, forKey: .updatesLastSeenChapterIDByMangaID)
+        try container.encode(readerPreferences, forKey: .readerPreferences)
+        try container.encode(libraryPreferences, forKey: .libraryPreferences)
+        try container.encode(appSettings, forKey: .appSettings)
+        try container.encode(downloadPreferences, forKey: .downloadPreferences)
+        try container.encode(browsePreferences, forKey: .browsePreferences)
+        try container.encode(securityPreferences, forKey: .securityPreferences)
+        try container.encode(advancedPreferences, forKey: .advancedPreferences)
+        try container.encode(trackers, forKey: .trackers)
+        try container.encode(mangaNotes, forKey: .mangaNotes)
+        try container.encode(onboardingCompleted, forKey: .onboardingCompleted)
+        try container.encode(sourceRepos, forKey: .sourceRepos)
+        try container.encode(persistedMangas, forKey: .persistedMangas)
     }
 }
