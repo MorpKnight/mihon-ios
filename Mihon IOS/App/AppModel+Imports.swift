@@ -25,7 +25,20 @@ extension AppModel {
     }
 
     func fileURL(for page: ReaderPage) -> URL? {
-        readerAssetRepository.fileURL(for: page)
+        guard let resolved = readerAssetRepository.fileURL(for: page) else { return nil }
+        if FileManager.default.fileExists(atPath: resolved.path) {
+            return resolved
+        }
+        guard let assetPath = page.assetPath, assetPath.contains(".partial/") else {
+            return resolved
+        }
+
+        let normalizedPath = assetPath.replacingOccurrences(of: ".partial/", with: "/")
+        if FileManager.default.fileExists(atPath: normalizedPath) {
+            return URL(fileURLWithPath: normalizedPath)
+        }
+
+        return resolved
     }
 
     func localImportSummary() -> String {
@@ -36,4 +49,3 @@ extension AppModel {
         "\(state.library.count) library • \(importRecords.count) imports • \(state.history.count) history"
     }
 }
-

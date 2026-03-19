@@ -49,6 +49,10 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
 
     private let databaseCoordinator: FileDatabaseCoordinator
     private let legacyStore: AppStateStore
+    private let sourceMangaRuntimeCache: RuntimeCacheStore<String, [Manga]>
+    private let sourceGenreRuntimeCache: RuntimeCacheStore<String, [GenreTag]>
+    private let chapterRuntimeCache: RuntimeCacheStore<String, [Chapter]>
+    private let pageRuntimeCache: RuntimeCacheStore<String, [ReaderPage]>
 
     var repository: SourceRepository
     let importRepository: FileImportRepository
@@ -78,6 +82,19 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
         self.importRepository = FileImportRepository(coordinator: self.databaseCoordinator)
 
         let snapshot = self.databaseCoordinator.loadSnapshot()
+        self.sourceMangaRuntimeCache = RuntimeCacheStore(
+            countLimit: Self.defaultSourceMangaCacheEntries
+        )
+        self.sourceGenreRuntimeCache = RuntimeCacheStore(
+            countLimit: Self.defaultSourceGenreCacheEntries
+        )
+        self.chapterRuntimeCache = RuntimeCacheStore(
+            countLimit: max(Self.defaultChapterCacheEntries, snapshot.downloadedChapters.count),
+            seed: snapshot.downloadedChapters
+        )
+        self.pageRuntimeCache = RuntimeCacheStore(
+            countLimit: Self.defaultPageCacheEntries
+        )
         let hydratedRepoRecords = snapshot.repoRecords.isEmpty
             ? snapshot.state.sourceRepos.map {
                 SourceRepoRecord(
@@ -98,10 +115,10 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
         self.importRecords = snapshot.imports
         self.importJobsState = snapshot.importJobs
         self.repoRecords = hydratedRepoRecords
-        self.sourceMangaCache = snapshot.cachedManga
+        self.sourceMangaCache = sourceMangaRuntimeCache.snapshot()
         self.sourceGenreCache = [:]
-        self.chapterCache = snapshot.cachedChapters
-        self.pageCache = [:]
+        self.chapterCache = chapterRuntimeCache.snapshot()
+        self.pageCache = pageRuntimeCache.snapshot()
         self.sourceErrors = [:]
         self.pageLoadErrors = [:]
         self.diagnosticLogs = snapshot.diagnostics
@@ -156,8 +173,7 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
             importJobs: importJobsState,
             repoRecords: repoRecords,
             diagnostics: diagnosticLogs,
-            cachedManga: sourceMangaCache,
-            cachedChapters: chapterCache
+            downloadedChapters: persistedDownloadedChapters()
         )
         databaseCoordinator.saveSnapshot(snapshot)
         legacyStore.save(state)
@@ -189,5 +205,134 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
 
     var downloadsDirectoryURL: URL {
         databaseCoordinator.downloadsDirectoryURL
+    }
+
+    func cachedSourceManga(for sourceID: String) -> [Manga]? {
+        sourceMangaRuntimeCache.value(forKey: sourceID)
+    }
+
+    func setCachedSourceManga(_ manga: [Manga], for sourceID: String) {
+        sourceMangaRuntimeCache.setValue(manga, forKey: sourceID)
+        sourceMangaCache = sourceMangaRuntimeCache.snapshot()
+    }
+
+    func removeCachedSourceManga(for sourceID: String) {
+        sourceMangaRuntimeCache.removeValue(forKey: sourceID)
+        sourceMangaCache = sourceMangaRuntimeCache.snapshot()
+    }
+
+    func clearCachedSourceManga() {
+        sourceMangaRuntimeCache.removeAll()
+        sourceMangaCache = [:]
+    }
+
+    func cachedGenreTags(for sourceID: String) -> [GenreTag]? {
+        sourceGenreRuntimeCache.value(forKey: sourceID)
+    }
+
+    func setCachedGenreTags(_ genres: [GenreTag], for sourceID: String) {
+        sourceGenreRuntimeCache.setValue(genres, forKey: sourceID)
+        sourceGenreCache = sourceGenreRuntimeCache.snapshot()
+    }
+
+    func clearCachedGenreTags() {
+        sourceGenreRuntimeCache.removeAll()
+        sourceGenreCache = [:]
+    }
+
+    func cachedChapters(for mangaID: String) -> [Chapter]? {
+        chapterRuntimeCache.value(forKey: mangaID)
+    }
+
+    func peekCachedChapters(for mangaID: String) -> [Chapter]? {
+        chapterRuntimeCache.peekValue(forKey: mangaID)
+    }
+
+    func setCachedChapters(_ chapters: [Chapter], for mangaID: String) {
+        chapterRuntimeCache.setValue(chapters, forKey: mangaID)
+        chapterCache = chapterRuntimeCache.snapshot()
+    }
+
+    func removeCachedChapters(for mangaID: String) {
+        chapterRuntimeCache.removeValue(forKey: mangaID)
+        chapterCache = chapterRuntimeCache.snapshot()
+    }
+
+    func clearCachedChapters(preservingOfflineOnly: Bool) {
+        if preservingOfflineOnly {
+            let offline = chapterRuntimeCache.snapshot().reduce(into: [String: [Chapter]]()) { partialResult, pair in
+                let chapters = pair.value.filter { $0.isDownloaded || !$0.pages.isEmpty }
+                if !chapters.isEmpty {
+                    partialResult[pair.key] = chapters
+                }
+            }
+            chapterRuntimeCache.removeAll()
+            for (key, chapters) in offline {
+                chapterRuntimeCache.setValue(chapters, forKey: key)
+            }
+        } else {
+            chapterRuntimeCache.removeAll()
+        }
+        chapterCache = chapterRuntimeCache.snapshot()
+    }
+
+    func cachedPages(for chapterID: String) -> [ReaderPage]? {
+        pageRuntimeCache.value(forKey: chapterID)
+    }
+
+    func setCachedPages(_ pages: [ReaderPage], for chapterID: String) {
+        pageRuntimeCache.setValue(pages, forKey: chapterID)
+        pageCache = pageRuntimeCache.snapshot()
+    }
+
+    func removeCachedPages(for chapterID: String) {
+        pageRuntimeCache.removeValue(forKey: chapterID)
+        pageCache = pageRuntimeCache.snapshot()
+    }
+
+    func clearCachedPages() {
+        pageRuntimeCache.removeAll()
+        pageCache = [:]
+    }
+
+    func trimRuntimeCaches(fraction: Double) {
+        let offlineChapters = persistedDownloadedChapters()
+        sourceMangaRuntimeCache.trimToFraction(fraction)
+        sourceGenreRuntimeCache.trimToFraction(fraction)
+        chapterRuntimeCache.removeAll()
+        for (key, chapters) in offlineChapters {
+            chapterRuntimeCache.setValue(chapters, forKey: key)
+        }
+        pageRuntimeCache.trimToFraction(fraction)
+        sourceMangaCache = sourceMangaRuntimeCache.snapshot()
+        sourceGenreCache = sourceGenreRuntimeCache.snapshot()
+        chapterCache = chapterRuntimeCache.snapshot()
+        pageCache = pageRuntimeCache.snapshot()
+    }
+
+    func reconfigureRuntimeCaches(
+        sourceMangaLimit: Int,
+        sourceGenreLimit: Int,
+        chapterLimit: Int,
+        pageLimit: Int
+    ) {
+        let offlineChapterCount = persistedDownloadedChapters().count
+        sourceMangaRuntimeCache.countLimit = sourceMangaLimit
+        sourceGenreRuntimeCache.countLimit = sourceGenreLimit
+        chapterRuntimeCache.countLimit = max(chapterLimit, offlineChapterCount)
+        pageRuntimeCache.countLimit = pageLimit
+        sourceMangaCache = sourceMangaRuntimeCache.snapshot()
+        sourceGenreCache = sourceGenreRuntimeCache.snapshot()
+        chapterCache = chapterRuntimeCache.snapshot()
+        pageCache = pageRuntimeCache.snapshot()
+    }
+
+    private func persistedDownloadedChapters() -> [String: [Chapter]] {
+        chapterRuntimeCache.snapshot().reduce(into: [:]) { partialResult, pair in
+            let offline = pair.value.filter { $0.isDownloaded || !$0.pages.isEmpty }
+            if !offline.isEmpty {
+                partialResult[pair.key] = offline
+            }
+        }
     }
 }

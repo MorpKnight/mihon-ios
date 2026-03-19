@@ -24,6 +24,12 @@ enum CachePolicy: String, Codable, Hashable {
     case reloadIgnoringCache
 }
 
+enum ImageDecodeIntent: String, Codable, Hashable {
+    case thumbnail
+    case readerPreview
+    case readerFullQuality
+}
+
 struct CacheEntryMetadata: Codable, Hashable {
     let key: String
     let domain: CacheDomain
@@ -43,7 +49,7 @@ struct CacheStats: Hashable {
 }
 
 protocol AppCacheManaging {
-    func image(for url: URL, key: String, policy: CachePolicy, loader: @escaping @Sendable () async throws -> Data) async throws -> UIImage
+    func image(for url: URL, key: String, policy: CachePolicy, intent: ImageDecodeIntent, loader: @escaping @Sendable () async throws -> Data) async throws -> UIImage
     func data(for key: String, domain: CacheDomain, policy: CachePolicy, ttl: TimeInterval?, loader: @escaping @Sendable () async throws -> Data) async throws -> Data
     func value<T: Codable>(for key: String, domain: CacheDomain, policy: CachePolicy, ttl: TimeInterval?, loader: @escaping @Sendable () async throws -> T) async throws -> T
     func clear(_ domain: CacheDomain) async
@@ -100,18 +106,19 @@ actor AppCacheController: AppCacheManaging {
         memoryDataCache.trimToFraction(fraction)
     }
 
-    func image(for url: URL, key: String, policy: CachePolicy, loader: @escaping @Sendable () async throws -> Data) async throws -> UIImage {
-        if policy != .reloadIgnoringCache, let cached = memoryImageCache.object(forKey: key) {
+    func image(for url: URL, key: String, policy: CachePolicy, intent: ImageDecodeIntent, loader: @escaping @Sendable () async throws -> Data) async throws -> UIImage {
+        let imageCacheKey = "\(key)|intent=\(intent.rawValue)"
+        if policy != .reloadIgnoringCache, let cached = memoryImageCache.object(forKey: imageCacheKey) {
             hitCount += 1
             return cached
         }
 
         let imageData = try await data(for: key, domain: .image, policy: policy, ttl: 60 * 60 * 24 * 7, loader: loader)
-        guard let image = Self.downsampledImage(data: imageData, for: url) ?? UIImage(data: imageData) else {
+        guard let image = Self.decodedImage(data: imageData, for: url, intent: intent) else {
             throw URLError(.cannotDecodeContentData)
         }
 
-        memoryImageCache.setObject(image, forKey: key, cost: imageData.count)
+        memoryImageCache.setObject(image, forKey: imageCacheKey, cost: imageData.count)
         return image
     }
 
@@ -176,10 +183,11 @@ actor AppCacheController: AppCacheManaging {
             memoryDataCache.removeAllObjects()
             dataMemoryKeysByDomain.removeAll()
         } else if let keys = dataMemoryKeysByDomain[domain] {
-            for key in keys {
+            let liveKeys = memoryDataCache.allKeys()
+            for key in keys.intersection(liveKeys) {
                 memoryDataCache.removeObject(forKey: key)
             }
-            dataMemoryKeysByDomain[domain] = Set<String>()
+            dataMemoryKeysByDomain[domain] = nil
         }
 
         let domains = domain == .all ? [CacheDomain.image, .sourceMetadata, .networkResponse] : [domain]
@@ -304,7 +312,18 @@ actor AppCacheController: AppCacheManaging {
         return hash.map { String(format: "%02x", $0) }.joined()
     }
 
-    private static func downsampledImage(data: Data, for url: URL, maxPixelSize: CGFloat = 2_400) -> UIImage? {
+    private static func decodedImage(data: Data, for url: URL, intent: ImageDecodeIntent) -> UIImage? {
+        switch intent {
+        case .thumbnail:
+            return downsampledImage(data: data, maxPixelSize: 1_200)
+        case .readerPreview:
+            return downsampledImage(data: data, maxPixelSize: 2_800)
+        case .readerFullQuality:
+            return fullQualityImage(data: data)
+        }
+    }
+
+    private static func downsampledImage(data: Data, maxPixelSize: CGFloat) -> UIImage? {
         let options = [kCGImageSourceShouldCache: false] as CFDictionary
         guard let source = CGImageSourceCreateWithData(data as CFData, options) else { return nil }
         let downsampleOptions = [
@@ -313,6 +332,13 @@ actor AppCacheController: AppCacheManaging {
             kCGImageSourceCreateThumbnailWithTransform: true,
         ] as CFDictionary
         guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, downsampleOptions) else { return nil }
+        return UIImage(cgImage: cgImage)
+    }
+
+    private static func fullQualityImage(data: Data) -> UIImage? {
+        let options = [kCGImageSourceShouldCache: true] as CFDictionary
+        guard let source = CGImageSourceCreateWithData(data as CFData, options) else { return nil }
+        guard let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return UIImage(data: data) }
         return UIImage(cgImage: cgImage)
     }
 }

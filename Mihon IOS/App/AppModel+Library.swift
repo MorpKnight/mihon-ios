@@ -29,7 +29,7 @@ extension AppModel {
             state.library.removeAll { $0.mangaID == manga.id }
 
             // Cleanup persisted backup if history doesn't mention it and the user has no offline downloads.
-            let hasOfflineDownloads = chapterCache[manga.id]?.contains(where: \.isDownloaded) ?? false
+            let hasOfflineDownloads = peekCachedChapters(for: manga.id)?.contains(where: \.isDownloaded) ?? false
             if !hasOfflineDownloads, !state.history.contains(where: { $0.mangaID == manga.id }) {
                 state.persistedMangas.removeAll { $0.id == manga.id }
             }
@@ -128,10 +128,10 @@ extension AppModel {
 
     private func ensureMangaCached(_ manga: Manga) {
         guard manga.sourceID != "local-files" else { return }
-        var items = sourceMangaCache[manga.sourceID] ?? []
+        var items = cachedSourceManga(for: manga.sourceID) ?? []
         if !items.contains(where: { $0.id == manga.id }) {
             items.append(manga)
-            sourceMangaCache[manga.sourceID] = items
+            setCachedSourceManga(items, for: manga.sourceID)
         }
     }
 }

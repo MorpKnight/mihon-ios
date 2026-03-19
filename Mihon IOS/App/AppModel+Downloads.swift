@@ -100,7 +100,7 @@ extension AppModel {
             .appendingPathComponent(manga.id, isDirectory: true)
         try? FileManager.default.removeItem(at: legacy)
 
-        if var chapters = chapterCache[manga.id] {
+        if var chapters = peekCachedChapters(for: manga.id) {
             chapters = chapters.map { chapter in
                 Chapter(
                     id: chapter.id,
@@ -112,7 +112,7 @@ extension AppModel {
                     pages: []
                 )
             }
-            chapterCache[manga.id] = chapters
+            setCachedChapters(chapters, for: manga.id)
         }
         persist()
     }
@@ -165,7 +165,7 @@ extension AppModel {
         }
         try? FileManager.default.removeItem(at: legacyBase.appendingPathComponent("\(chapter.id).partial", isDirectory: true))
 
-        if var chapters = chapterCache[manga.id], let index = chapters.firstIndex(where: { $0.id == chapter.id }) {
+        if var chapters = peekCachedChapters(for: manga.id), let index = chapters.firstIndex(where: { $0.id == chapter.id }) {
             let existing = chapters[index]
             chapters[index] = Chapter(
                 id: existing.id,
@@ -176,10 +176,10 @@ extension AppModel {
                 isDownloaded: false,
                 pages: []
             )
-            chapterCache[manga.id] = chapters
+            setCachedChapters(chapters, for: manga.id)
         }
 
-        pageCache[chapter.id] = nil
+        removeCachedPages(for: chapter.id)
         pageLoadErrors[chapter.id] = nil
         persist()
     }
@@ -321,7 +321,28 @@ extension AppModel {
         try FileManager.default.createDirectory(at: chapterBase, withIntermediateDirectories: true, attributes: nil)
         try? FileManager.default.removeItem(at: committed)
         try FileManager.default.moveItem(at: partial, to: committed)
-        return (updated, committed)
+        let committedPages = updated.map { page in
+            guard let assetPath = page.assetPath else { return page }
+            let partialPrefix = partial.path + "/"
+            let finalPath: String
+            if assetPath.hasPrefix(partialPrefix) {
+                finalPath = committed.path + "/" + assetPath.dropFirst(partialPrefix.count)
+            } else {
+                finalPath = assetPath.replacingOccurrences(of: ".partial/", with: "/")
+            }
+
+            return ReaderPage(
+                id: page.id,
+                index: page.index,
+                title: page.title,
+                body: page.body,
+                accentHex: page.accentHex,
+                assetKind: page.assetKind,
+                assetPath: finalPath,
+                remoteURL: page.remoteURL
+            )
+        }
+        return (committedPages, committed)
     }
 
     private func commitDownloadedChapter(job: DownloadJob, pages: [ReaderPage]) {
@@ -337,14 +358,14 @@ extension AppModel {
             pages: pages
         )
 
-        var chapters = chapterCache[job.mangaID] ?? chapters(for: job.manga)
+        var chapters = peekCachedChapters(for: job.mangaID) ?? chapters(for: job.manga)
         if let index = chapters.firstIndex(where: { $0.id == downloadedChapter.id }) {
             chapters[index] = downloadedChapter
         } else {
             chapters.insert(downloadedChapter, at: 0)
         }
-        chapterCache[job.mangaID] = chapters
-        pageCache[downloadedChapter.id] = pages
+        setCachedChapters(chapters, for: job.mangaID)
+        setCachedPages(pages, for: downloadedChapter.id)
         pageLoadErrors[downloadedChapter.id] = nil
         persist()
     }

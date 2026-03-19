@@ -98,6 +98,9 @@ struct ReaderView: View {
             activeLoadRequestID = UUID()
             prefetchTask?.cancel()
             prefetchTask = nil
+            Task {
+                await ReaderImagePipeline.shared.cancelPrefetch(for: currentChapter.id)
+            }
         }
     }
 
@@ -625,7 +628,7 @@ struct ReaderView: View {
         }
         guard !window.isEmpty else { return }
         prefetchTask = Task {
-            await ReaderImagePipeline.shared.prefetch(window, chapterID: chapterID)
+            await ReaderImagePipeline.shared.prefetch(window, chapterID: chapterID, limit: prefetchCount)
         }
     }
 }
@@ -743,13 +746,14 @@ private struct ReaderPageSurface: View {
 
     @ViewBuilder
     private var content: some View {
-        if page.assetKind == .image, let fileURL = model.fileURL(for: page) {
-            CachedLocalImageView(fileURL: fileURL) { image in
+        if page.assetKind == .image, page.assetPath != nil {
+            CachedLocalImageView(page: page) { image in
                 zoomableImage(image.resizable())
             }
         } else if page.assetKind == .image, let remoteURL = page.remoteURL, let url = URL(string: remoteURL) {
             ReaderRemoteImageView(
                 url: url,
+                page: page,
                 aggressiveRetry: model.state.advancedPreferences.aggressiveImageRetry
             ) { image in
                 zoomableImage(image.resizable())
@@ -814,7 +818,9 @@ private struct ReaderPageSurface: View {
 }
 
 private struct ReaderRemoteImageView<Content: View>: View {
+    @EnvironmentObject private var model: AppModel
     let url: URL
+    let page: ReaderPage
     let aggressiveRetry: Bool
     @ViewBuilder let content: (Image) -> Content
 
@@ -869,6 +875,15 @@ private struct ReaderRemoteImageView<Content: View>: View {
             let image = try await ReaderImagePipeline.shared.image(for: url, forceRefresh: retryToken > 0)
             phase = .success(image)
         } catch {
+            model.appendDiagnostic(
+                kind: .reader,
+                title: "Reader Remote Image Failed",
+                message: error.localizedDescription,
+                metadata: [
+                    "pageID": page.id,
+                    "url": url.absoluteString
+                ]
+            )
             if aggressiveRetry, retryToken == 0 {
                 do {
                     let image = try await ReaderImagePipeline.shared.image(for: url, forceRefresh: true)
@@ -892,7 +907,8 @@ actor ReaderImagePipeline {
 
     private let cache: AppCacheManaging = AppCacheController.shared
     private var inFlight: [URL: Task<UIImage, Error>] = [:]
-    private var prefetchTasks: [Task<Void, Never>] = []
+    private var prefetchTasksByURL: [URL: Task<Void, Never>] = [:]
+    private var activePrefetchChapterID: String?
 
     func image(for url: URL, forceRefresh: Bool) async throws -> UIImage {
         if !forceRefresh, let task = inFlight[url] {
@@ -906,7 +922,8 @@ actor ReaderImagePipeline {
             return try await cache.image(
                 for: url,
                 key: "reader-image|\(url.absoluteString)",
-                policy: forceRefresh ? .reloadIgnoringCache : .returnCacheElseLoad
+                policy: forceRefresh ? .reloadIgnoringCache : .returnCacheElseLoad,
+                intent: .readerFullQuality
             ) {
                 let (data, response) = try await URLSession.shared.data(for: request)
                 guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else {
@@ -928,16 +945,31 @@ actor ReaderImagePipeline {
         }
     }
 
-    func prefetch(_ urls: [URL], chapterID: String) async {
-        cancelPrefetchTasks()
-        for url in urls {
+    func prefetch(_ urls: [URL], chapterID: String, limit: Int) async {
+        let boundedURLs = Array(urls.prefix(max(limit, 0)))
+        let targetSet = Set(boundedURLs)
+
+        if activePrefetchChapterID != chapterID {
+            cancelPrefetchTasks()
+            activePrefetchChapterID = chapterID
+        }
+
+        for (url, task) in prefetchTasksByURL where !targetSet.contains(url) {
+            task.cancel()
+            prefetchTasksByURL[url] = nil
+        }
+
+        for url in boundedURLs {
             if Task.isCancelled { return }
-            if inFlight[url] != nil { continue }
+            if inFlight[url] != nil || prefetchTasksByURL[url] != nil { continue }
             let task = Task<Void, Never> {
+                defer {
+                    Task { await self.finishPrefetch(for: url) }
+                }
                 guard !Task.isCancelled else { return }
                 _ = try? await image(for: url, forceRefresh: false)
             }
-            prefetchTasks.append(task)
+            prefetchTasksByURL[url] = task
         }
     }
 
@@ -950,53 +982,125 @@ actor ReaderImagePipeline {
         await cache.clear(.image)
     }
 
+    func cancelPrefetch(for chapterID: String? = nil) {
+        guard chapterID == nil || chapterID == activePrefetchChapterID else { return }
+        cancelPrefetchTasks()
+        activePrefetchChapterID = nil
+    }
+
     private func cancelPrefetchTasks() {
-        for task in prefetchTasks {
+        for task in prefetchTasksByURL.values {
             task.cancel()
         }
-        prefetchTasks.removeAll()
+        prefetchTasksByURL.removeAll()
+    }
+
+    private func finishPrefetch(for url: URL) {
+        prefetchTasksByURL[url] = nil
     }
 }
 
 private struct CachedLocalImageView<Content: View>: View {
-    let fileURL: URL
+    @EnvironmentObject private var model: AppModel
+    let page: ReaderPage
     @ViewBuilder let content: (Image) -> Content
 
-    @State private var uiImage: UIImage?
+    @State private var phase: LocalImagePhase = .loading
 
     var body: some View {
         Group {
-            if let uiImage {
-                content(Image(uiImage: uiImage))
-            } else {
+            switch phase {
+            case .loading:
                 Rectangle()
                     .fill(.clear)
-                    .task(id: fileURL) {
-                        await loadFromCache()
+                    .task(id: page.id) {
+                        await loadFromDisk()
                     }
+            case .success(let uiImage):
+                content(Image(uiImage: uiImage))
+            case .failure(let message):
+                ReaderInlineFailureView(title: "Downloaded Page Failed", message: message)
             }
         }
     }
 
     @MainActor
-    private func loadFromCache() async {
-        let key = "local-image|\(fileURL.path)"
-        do {
-            let image = try await AppCacheController.shared.image(
-                for: fileURL,
-                key: key,
-                policy: .memoryOnly
-            ) {
-                guard let data = try? Data(contentsOf: fileURL) else {
-                    throw URLError(.cannotOpenFile)
-                }
-                return data
-            }
-            uiImage = image
-        } catch {
-            // Fall back to direct load if cache fails
-            uiImage = UIImage(contentsOfFile: fileURL.path)
+    private func loadFromDisk() async {
+        guard let fileURL = model.fileURL(for: page) else {
+            phase = .failure("The downloaded file could not be found.")
+            model.appendDiagnostic(
+                kind: .reader,
+                title: "Reader Local Asset Missing",
+                message: "A downloaded page file could not be resolved.",
+                metadata: [
+                    "pageID": page.id,
+                    "assetPath": page.assetPath ?? "<nil>",
+                    "remoteURL": page.remoteURL ?? "<nil>"
+                ]
+            )
+            return
         }
+
+        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+            phase = .failure("The downloaded file is missing from storage.")
+            model.appendDiagnostic(
+                kind: .reader,
+                title: "Reader Local Asset Missing",
+                message: "A downloaded page path resolved, but the file is absent on disk.",
+                metadata: [
+                    "pageID": page.id,
+                    "assetPath": fileURL.path
+                ]
+            )
+            return
+        }
+
+        guard
+            let data = try? Data(contentsOf: fileURL),
+            let image = UIImage(data: data)
+        else {
+            phase = .failure("The downloaded file could not be decoded.")
+            model.appendDiagnostic(
+                kind: .reader,
+                title: "Reader Local Decode Failed",
+                message: "A downloaded page file exists but could not be decoded into an image.",
+                metadata: [
+                    "pageID": page.id,
+                    "assetPath": fileURL.path
+                ]
+            )
+            return
+        }
+
+        phase = .success(image)
+    }
+}
+
+private enum LocalImagePhase {
+    case loading
+    case success(UIImage)
+    case failure(String)
+}
+
+private struct ReaderInlineFailureView: View {
+    let title: String
+    let message: String
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.title2)
+                .foregroundStyle(.white.opacity(0.82))
+            Text(title)
+                .font(.headline)
+                .foregroundStyle(.white)
+            Text(message)
+                .font(.subheadline)
+                .foregroundStyle(.white.opacity(0.72))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

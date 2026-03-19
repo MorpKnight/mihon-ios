@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import Foundation
 
 struct MangaCoverView: View {
     @EnvironmentObject private var model: AppModel
@@ -96,7 +97,18 @@ private struct CachedCoverImage<Content: View>: View {
     @MainActor
     private func load() async {
         do {
-            let image = try await ReaderImagePipeline.shared.image(for: url, forceRefresh: false)
+            let image = try await AppCacheController.shared.image(
+                for: url,
+                key: "cover-image|\(url.absoluteString)",
+                policy: .returnCacheElseLoad,
+                intent: .thumbnail
+            ) {
+                let (data, response) = try await URLSession.shared.data(from: url)
+                guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else {
+                    throw URLError(.badServerResponse)
+                }
+                return data
+            }
             uiImage = image
         } catch {
             uiImage = nil

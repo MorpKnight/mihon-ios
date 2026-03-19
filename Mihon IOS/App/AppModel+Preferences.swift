@@ -208,16 +208,26 @@ extension AppModel {
 
     func applyCacheConfiguration() async {
         let prefs = state.advancedPreferences
+        let runtimeSourceLimit = max(12, prefs.imageCacheCountLimit / 3)
+        let runtimeGenreLimit = max(8, runtimeSourceLimit / 2)
+        let runtimeChapterLimit = max(20, prefs.imageCacheCountLimit / 2)
+        let runtimePageLimit = max(20, prefs.imageCacheCountLimit)
+
         let config = CacheConfiguration(
             imageCountLimit: prefs.imageCacheCountLimit,
             imageBytesLimit: prefs.memoryCacheLimitMB * 1_024 * 1_024,
             dataCountLimit: CacheConfiguration.default.dataCountLimit,
-            dataBytesLimit: CacheConfiguration.default.dataBytesLimit,
+            dataBytesLimit: max(20, prefs.memoryCacheLimitMB / 2) * 1_024 * 1_024,
             diskImageBytesLimit: CacheConfiguration.default.diskImageBytesLimit,
             diskMetadataBytesLimit: CacheConfiguration.default.diskMetadataBytesLimit,
             diskNetworkBytesLimit: CacheConfiguration.default.diskNetworkBytesLimit
         )
+        reconfigureRuntimeCaches(
+            sourceMangaLimit: runtimeSourceLimit,
+            sourceGenreLimit: runtimeGenreLimit,
+            chapterLimit: runtimeChapterLimit,
+            pageLimit: runtimePageLimit
+        )
         await cacheController.reconfigure(config)
     }
 }
-
