@@ -85,6 +85,7 @@ struct AppChromeView: View {
 
 private struct BiometricLockView: View {
     @EnvironmentObject private var model: AppModel
+    @State private var showRetryAlert = false
 
     var body: some View {
         ZStack {
@@ -112,6 +113,18 @@ private struct BiometricLockView: View {
                 .buttonStyle(.borderedProminent)
             }
             .padding(28)
+        }
+        .onChange(of: model.biometricErrorMessage) { _, newValue in
+            guard let message = newValue, !message.isEmpty else { return }
+            showRetryAlert = true
+        }
+        .alert("Face ID Failed", isPresented: $showRetryAlert) {
+            Button("Cancel", role: .cancel) {}
+            Button("Retry") {
+                Task { await model.requestBiometricUnlock() }
+            }
+        } message: {
+            Text(model.biometricErrorMessage ?? "Authentication failed. Please try again.")
         }
     }
 }

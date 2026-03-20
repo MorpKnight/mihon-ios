@@ -4,7 +4,6 @@
 //
 
 import Foundation
-import LocalAuthentication
 
 extension AppModel {
     func lockAppIfNeeded() {
@@ -24,29 +23,14 @@ extension AppModel {
             return
         }
 
-        let context = LAContext()
-        context.localizedCancelTitle = "Cancel"
-        var authError: NSError?
-
-        guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &authError) else {
-            biometricErrorMessage = authError?.localizedDescription ?? "Face ID is not available on this device."
-            appendDiagnostic(kind: .security, title: "Biometric Unavailable", message: biometricErrorMessage ?? "Face ID is not available.", metadata: [:])
-            return
-        }
-
-        do {
-            let success = try await context.evaluatePolicy(
-                .deviceOwnerAuthenticationWithBiometrics,
-                localizedReason: "Unlock Mihon to continue reading and browsing."
-            )
-            if success {
-                isAppUnlocked = true
-                biometricErrorMessage = nil
-            }
-        } catch {
+        switch await biometricAuthenticator.evaluate(reason: "Unlock Mihon to continue reading and browsing.") {
+        case .success:
+            isAppUnlocked = true
+            biometricErrorMessage = nil
+        case .failure(let error):
+            isAppUnlocked = false
             biometricErrorMessage = error.localizedDescription
             appendDiagnostic(kind: .security, title: "Biometric Unlock Failed", message: error.localizedDescription, metadata: [:])
         }
     }
 }
-

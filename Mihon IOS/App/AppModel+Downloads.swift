@@ -129,17 +129,13 @@ extension AppModel {
     func cancelDownload(jobID: UUID) {
         guard let index = downloadJobs.firstIndex(where: { $0.id == jobID }) else { return }
         let job = downloadJobs[index]
-        if downloadActiveJobID == jobID {
-            downloadActiveTask?.cancel()
-        }
+        let wasActive = downloadQueueCoordinator.cancelIfActive(jobID: jobID)
         downloadJobs[index].state = .failed
         downloadJobs[index].errorMessage = "Cancelled"
         downloadJobs[index].progress = max(downloadJobs[index].progress, 0)
 
         cleanupPartialDownload(for: job)
-        if downloadActiveJobID == jobID {
-            downloadActiveJobID = nil
-            downloadActiveTask = nil
+        if wasActive {
             startNextDownloadIfNeeded()
         }
     }
@@ -185,28 +181,31 @@ extension AppModel {
     }
 
     private func startNextDownloadIfNeeded() {
-        guard downloadActiveTask == nil else { return }
-        guard let next = downloadJobs
-            .filter({ $0.state == .queued })
-            .sorted(by: { $0.queuedAt < $1.queuedAt })
-            .first
-        else { return }
+        guard let nextID = downloadQueueCoordinator.startIfIdle(jobs: downloadJobs, run: { [weak self] jobID in
+            guard let self else { return }
+            await self.performDownload(jobID: jobID)
+        }) else { return }
 
-        updateJob(next.id) { job in
+        updateJob(nextID) { job in
             job.state = .downloading
             job.errorMessage = nil
         }
-
-        downloadActiveJobID = next.id
-
-        let task = Task.detached(priority: .utility) { [weak self] in
-            guard let self else { return }
-            await self.performDownload(jobID: next.id)
-        }
-        downloadActiveTask = task
     }
 
     private func performDownload(jobID: UUID) async {
+        let backgroundTaskID = await MainActor.run {
+            backgroundTaskManager.beginTask(name: "Mihon.Download.\(jobID.uuidString)") { [weak self] in
+                Task { @MainActor in
+                    self?.cancelDownload(jobID: jobID)
+                }
+            }
+        }
+        defer {
+            Task { @MainActor in
+                backgroundTaskManager.endTask(backgroundTaskID)
+            }
+        }
+
         let job = await MainActor.run { self.downloadJobs.first(where: { $0.id == jobID }) }
         guard let job else {
             await finishActiveDownload(jobID: jobID)
@@ -261,86 +260,17 @@ extension AppModel {
         let chapterBase = base
             .appendingPathComponent(sourceComponent, isDirectory: true)
             .appendingPathComponent(mangaComponent, isDirectory: true)
-        try FileManager.default.createDirectory(at: chapterBase, withIntermediateDirectories: true, attributes: nil)
-
-        let partial = chapterBase.appendingPathComponent("\(chapterComponent).partial", isDirectory: true)
         let committed = chapterBase.appendingPathComponent(chapterComponent, isDirectory: true)
-        try? FileManager.default.removeItem(at: partial)
-        try FileManager.default.createDirectory(at: partial, withIntermediateDirectories: true, attributes: nil)
-
-        let imagePages = pages.filter { $0.assetKind == .image }
-        let total = max(imagePages.count, 1)
-        var completedCount = 0
-
-        var updated: [ReaderPage] = []
-        updated.reserveCapacity(pages.count)
-
-        for page in pages {
-            if Task.isCancelled { throw CancellationError() }
-            if page.assetKind != .image {
-                updated.append(page)
-                continue
-            }
-
-            guard let remote = page.remoteURL, let url = URL(string: remote) else {
-                throw NSError(domain: "Downloads", code: 2, userInfo: [NSLocalizedDescriptionKey: "Missing page URL."])
-            }
-
-            var request = URLRequest(url: url)
-            request.timeoutInterval = 20
-            let (data, response) = try await URLSession.shared.data(for: request)
-            guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else {
-                throw URLError(.badServerResponse)
-            }
-
-            let ext = url.pathExtension.isEmpty ? "img" : url.pathExtension
-            let fileURL = partial.appendingPathComponent("page_\(page.index).\(ext)")
-            try data.write(to: fileURL, options: .atomic)
-
-            let newPage = ReaderPage(
-                id: page.id,
-                index: page.index,
-                title: page.title,
-                body: page.body,
-                accentHex: page.accentHex,
-                assetKind: page.assetKind,
-                assetPath: fileURL.path,
-                remoteURL: page.remoteURL
-            )
-            updated.append(newPage)
-
-            completedCount += 1
-            let progress = Double(completedCount) / Double(total)
+        let committedPages = try await downloadsService.downloadAndStorePages(
+            pages: pages,
+            chapterBaseDirectory: chapterBase,
+            chapterComponent: chapterComponent
+        ) { progress in
             await MainActor.run {
                 self.updateJob(job.id) { item in
-                    item.progress = min(max(progress, 0), 1)
+                    item.progress = progress
                 }
             }
-        }
-
-        try FileManager.default.createDirectory(at: chapterBase, withIntermediateDirectories: true, attributes: nil)
-        try? FileManager.default.removeItem(at: committed)
-        try FileManager.default.moveItem(at: partial, to: committed)
-        let committedPages = updated.map { page in
-            guard let assetPath = page.assetPath else { return page }
-            let partialPrefix = partial.path + "/"
-            let finalPath: String
-            if assetPath.hasPrefix(partialPrefix) {
-                finalPath = committed.path + "/" + assetPath.dropFirst(partialPrefix.count)
-            } else {
-                finalPath = assetPath.replacingOccurrences(of: ".partial/", with: "/")
-            }
-
-            return ReaderPage(
-                id: page.id,
-                index: page.index,
-                title: page.title,
-                body: page.body,
-                accentHex: page.accentHex,
-                assetKind: page.assetKind,
-                assetPath: finalPath,
-                remoteURL: page.remoteURL
-            )
         }
         return (committedPages, committed)
     }
@@ -405,9 +335,7 @@ extension AppModel {
 
     private func finishActiveDownload(jobID: UUID) async {
         await MainActor.run {
-            if self.downloadActiveJobID == jobID {
-                self.downloadActiveJobID = nil
-                self.downloadActiveTask = nil
+            if self.downloadQueueCoordinator.finishIfActive(jobID: jobID) {
                 self.startNextDownloadIfNeeded()
             }
         }

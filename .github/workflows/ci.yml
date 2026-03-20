@@ -1,0 +1,25 @@
+name: iOS CI
+
+on:
+  pull_request:
+    branches: ["**"]
+  push:
+    branches: ["main", "master", "gi-works"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build app
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Resolve package dependencies
+        run: xcodebuild -resolvePackageDependencies -project "Mihon IOS.xcodeproj"
+
+      - name: Build (generic iOS destination)
+        run: xcodebuild -project "Mihon IOS.xcodeproj" -scheme "Mihon IOS" -destination 'generic/platform=iOS' build

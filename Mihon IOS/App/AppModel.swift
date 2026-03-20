@@ -60,18 +60,23 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
     let readerAssetRepository: ReaderAssetRepository
     let repoImporter: SourceRepoImporter
     let cacheController: AppCacheManaging
-
-    var downloadActiveJobID: UUID?
-    var downloadActiveTask: Task<Void, Never>?
+    let biometricAuthenticator: BiometricAuthenticating
+    let downloadsService: DownloadsServicing
+    let downloadQueueCoordinator: DownloadQueueCoordinating
+    let backgroundTaskManager: BackgroundTaskManaging
 
     init(
-        store: AppStateStore = AppStateStore(),
+        store: AppStateStore,
         repository: SourceRepository? = nil,
         databaseCoordinator: FileDatabaseCoordinator? = nil,
-        localContentRepository: LocalContentRepository = DefaultLocalContentRepository(),
-        readerAssetRepository: ReaderAssetRepository = DefaultReaderAssetRepository(),
-        repoImporter: SourceRepoImporter = SourceRepoImporter(),
-        cacheController: AppCacheManaging = AppCacheController.shared
+        localContentRepository: LocalContentRepository,
+        readerAssetRepository: ReaderAssetRepository,
+        repoImporter: SourceRepoImporter,
+        cacheController: AppCacheManaging,
+        biometricAuthenticator: BiometricAuthenticating,
+        downloadsService: DownloadsServicing,
+        downloadQueueCoordinator: DownloadQueueCoordinating,
+        backgroundTaskManager: BackgroundTaskManaging
     ) {
         self.legacyStore = store
         self.databaseCoordinator = databaseCoordinator ?? FileDatabaseCoordinator(stateStore: store)
@@ -79,6 +84,10 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
         self.readerAssetRepository = readerAssetRepository
         self.repoImporter = repoImporter
         self.cacheController = cacheController
+        self.biometricAuthenticator = biometricAuthenticator
+        self.downloadsService = downloadsService
+        self.downloadQueueCoordinator = downloadQueueCoordinator
+        self.backgroundTaskManager = backgroundTaskManager
         self.importRepository = FileImportRepository(coordinator: self.databaseCoordinator)
 
         let snapshot = self.databaseCoordinator.loadSnapshot()
@@ -149,6 +158,38 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
                 self.respondToMemoryPressure()
             }
         }
+    }
+
+    convenience init() {
+        self.init(
+            store: AppStateStore(),
+            repository: nil,
+            databaseCoordinator: nil,
+            localContentRepository: DefaultLocalContentRepository(),
+            readerAssetRepository: DefaultReaderAssetRepository(),
+            repoImporter: SourceRepoImporter(),
+            cacheController: AppCacheController.shared,
+            biometricAuthenticator: LocalBiometricAuthenticator(),
+            downloadsService: DefaultDownloadsService(),
+            downloadQueueCoordinator: DownloadQueueCoordinator(),
+            backgroundTaskManager: AppBackgroundTaskManager()
+        )
+    }
+
+    convenience init(dependencies: AppDependencies) {
+        self.init(
+            store: dependencies.store,
+            repository: dependencies.repository,
+            databaseCoordinator: dependencies.databaseCoordinator,
+            localContentRepository: dependencies.localContentRepository,
+            readerAssetRepository: dependencies.readerAssetRepository,
+            repoImporter: dependencies.repoImporter,
+            cacheController: dependencies.cacheController,
+            biometricAuthenticator: dependencies.biometricAuthenticator,
+            downloadsService: dependencies.downloadsService,
+            downloadQueueCoordinator: dependencies.downloadQueueCoordinator,
+            backgroundTaskManager: dependencies.backgroundTaskManager
+        )
     }
 
     var preferredColorScheme: ColorScheme? {

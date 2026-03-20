@@ -9,7 +9,11 @@ import SwiftUI
 
 @main
 struct Mihon_IOSApp: App {
-    @StateObject private var model = AppModel()
+    @StateObject private var model: AppModel
+
+    init() {
+        _model = StateObject(wrappedValue: AppModel(dependencies: .live))
+    }
 
     var body: some Scene {
         WindowGroup {
