@@ -119,10 +119,10 @@ private struct BiometricLockView: View {
             showRetryAlert = true
         }
         .alert("Face ID Failed", isPresented: $showRetryAlert) {
-            Button("Cancel", role: .cancel) {}
             Button("Retry") {
                 Task { await model.requestBiometricUnlock() }
             }
+            Button("Cancel", role: .cancel) {}
         } message: {
             Text(model.biometricErrorMessage ?? "Authentication failed. Please try again.")
         }

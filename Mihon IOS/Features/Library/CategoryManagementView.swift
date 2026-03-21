@@ -22,11 +22,19 @@ struct CategoryManagementView: View {
             }
 
             Section("Current Categories") {
-                ForEach(model.categories) { category in
-                    NavigationLink {
-                        CategoryDetailView(category: category)
-                    } label: {
-                        Label(category.name, systemImage: category.systemImage)
+                if model.categories.isEmpty {
+                    ContentUnavailableView(
+                        "No Categories Yet",
+                        systemImage: "folder.badge.plus",
+                        description: Text("Create your own categories here. New installs no longer start with default category groups.")
+                    )
+                } else {
+                    ForEach(model.categories) { category in
+                        NavigationLink {
+                            CategoryDetailView(category: category)
+                        } label: {
+                            Label(category.name, systemImage: category.systemImage)
+                        }
                     }
                 }
             }
@@ -93,12 +101,19 @@ struct LibrarySettingsView: View {
                     }
                 }
 
-                Picker("Default Category", selection: Binding(
-                    get: { model.state.libraryPreferences.defaultCategoryID },
-                    set: model.setDefaultCategoryID
-                )) {
-                    ForEach(model.categories) { category in
-                        Text(category.name).tag(category.id)
+                if model.categories.isEmpty {
+                    LabeledContent("Default Category", value: "Uncategorized")
+                    Text("Titles added to the library stay uncategorized until you create and assign your own categories.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Picker("Default Category", selection: Binding(
+                        get: { model.state.libraryPreferences.defaultCategoryID },
+                        set: model.setDefaultCategoryID
+                    )) {
+                        ForEach(model.categories) { category in
+                            Text(category.name).tag(category.id)
+                        }
                     }
                 }
             }

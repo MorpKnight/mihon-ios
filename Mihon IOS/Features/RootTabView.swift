@@ -73,9 +73,6 @@ struct RootTabView: View {
                 handleTabReselect(index: index)
             }
         )
-        .onChange(of: selectedTab) { _ in
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        }
     }
 
     private func handleTabReselect(index: Int) {

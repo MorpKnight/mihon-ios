@@ -10,6 +10,39 @@ extension AppModel {
         state.progress.first { $0.mangaID == manga.id }
     }
 
+    func resumeChapter(for manga: Manga) -> Chapter? {
+        if let progress = progress(for: manga) {
+            if let chapter = chapter(for: progress.chapterID, in: manga) {
+                return chapter
+            }
+
+            return Chapter(
+                id: progress.chapterID,
+                mangaID: manga.id,
+                title: progress.chapterTitle ?? "Chapter",
+                number: 0,
+                releaseDate: .distantPast,
+                isDownloaded: false,
+                pages: []
+            )
+        }
+
+        return latestChapter(for: manga)
+    }
+
+    func progressDisplayText(for manga: Manga, fallbackChapter: Chapter? = nil) -> String? {
+        guard let progress = progress(for: manga) else {
+            return fallbackChapter?.title
+        }
+
+        let title = chapter(for: progress.chapterID, in: manga)?.title
+            ?? progress.chapterTitle
+            ?? fallbackChapter?.title
+            ?? "Chapter"
+        let total = max(progress.totalPages, 1)
+        return "\(title) • Page \(progress.pageIndex + 1) of \(total)"
+    }
+
     var historyDisplayEntries: [(HistoryEntry, Manga, Chapter)] {
         state.history
             .sorted { $0.timestamp > $1.timestamp }
@@ -72,10 +105,7 @@ extension AppModel {
     }
 
     func startChapter(for manga: Manga) -> Chapter? {
-        if let progress = progress(for: manga), let chapter = chapter(for: progress.chapterID, in: manga) {
-            return chapter
-        }
-        return latestChapter(for: manga)
+        resumeChapter(for: manga)
     }
 
     func nextChapter(after chapter: Chapter, in manga: Manga) -> Chapter? {
@@ -91,12 +121,16 @@ extension AppModel {
     }
 
     func updateProgress(for manga: Manga, chapter: Chapter, pageIndex: Int) {
-        let boundedPage = min(max(pageIndex, 0), max(chapter.pages.count - 1, 0))
+        let previous = state.progress.first(where: { $0.mangaID == manga.id })
+        let previousTotalPages = previous?.chapterID == chapter.id ? previous?.totalPages ?? 0 : 0
+        let effectiveTotalPages = max(chapter.pages.count, previousTotalPages)
+        let boundedPage = min(max(pageIndex, 0), max(effectiveTotalPages - 1, 0))
         let record = ReadingProgress(
             mangaID: manga.id,
             chapterID: chapter.id,
+            chapterTitle: chapter.title,
             pageIndex: boundedPage,
-            totalPages: chapter.pages.count,
+            totalPages: effectiveTotalPages,
             updatedAt: .now
         )
 
@@ -122,4 +156,3 @@ extension AppModel {
         persist()
     }
 }
-

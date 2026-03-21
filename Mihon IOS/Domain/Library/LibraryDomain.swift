@@ -22,6 +22,7 @@ struct ReadingProgress: Identifiable, Codable, Hashable {
     var id: String { mangaID }
     let mangaID: String
     var chapterID: String
+    var chapterTitle: String?
     var pageIndex: Int
     var totalPages: Int
     var updatedAt: Date
@@ -57,4 +58,3 @@ struct UpdateFeedItem: Identifiable, Hashable {
     let chapter: Chapter
     let entry: UpdateEntry
 }
-

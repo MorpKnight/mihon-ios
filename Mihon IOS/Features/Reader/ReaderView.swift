@@ -16,7 +16,6 @@ struct ReaderView: View {
 
     @State private var currentChapter: Chapter
     @State private var pageIndex: Int
-    @State private var sliderPageIndex: Double
     @State private var showingSettings = false
     @State private var showingActions = false
     @State private var showingChrome = false
@@ -25,13 +24,17 @@ struct ReaderView: View {
     @State private var pendingPageIndexAfterChapterChange: Int?
     @State private var activeLoadRequestID = UUID()
     @State private var prefetchTask: Task<Void, Never>?
+    @State private var hasAppliedResumeProgress = false
+    @State private var canPersistPageProgress = false
+    @State private var pagerDisplayIndex = 1
+
+    private let verticalScrollCoordinateSpace = "reader.vertical.scroll"
 
     init(manga: Manga, initialChapter: Chapter) {
         self.manga = manga
         self.initialChapter = initialChapter
         _currentChapter = State(initialValue: initialChapter)
         _pageIndex = State(initialValue: 0)
-        _sliderPageIndex = State(initialValue: 1)
     }
 
     var body: some View {
@@ -72,27 +75,31 @@ struct ReaderView: View {
             Button("Close", role: .cancel) { }
         }
         .onAppear {
+            canPersistPageProgress = false
             if let progress = model.progress(for: manga), progress.chapterID == currentChapter.id {
-                pageIndex = min(progress.pageIndex, max(currentPages.count - 1, 0))
-                sliderPageIndex = Double(pageIndex + 1)
+                pendingPageIndexAfterChapterChange = max(progress.pageIndex, 0)
             }
-            persistProgress()
             startPageLoad(forceRefresh: false)
         }
         .onChange(of: pageIndex) { _, newValue in
-            pageIndex = min(max(newValue, 0), max(currentPages.count - 1, 0))
-            sliderPageIndex = Double(pageIndex + 1)
-            persistProgress()
+            guard !currentPages.isEmpty else { return }
+            let boundedPageIndex = boundedPageIndex(for: newValue)
+            if boundedPageIndex != newValue {
+                pageIndex = boundedPageIndex
+                return
+            }
             prefetchAroundCurrentPage()
+            guard canPersistPageProgress, pageLoadState == .loaded else { return }
+            persistProgress()
         }
         .onChange(of: currentChapter.id) { _, _ in
+            canPersistPageProgress = false
             pageIndex = pendingPageIndexAfterChapterChange ?? 0
-            sliderPageIndex = Double(pageIndex + 1)
-            persistProgress()
+            hasAppliedResumeProgress = false
             startPageLoad(forceRefresh: false)
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase != .active { persistProgress() }
+            if phase != .active, canPersistPageProgress, !currentPages.isEmpty { persistProgress() }
         }
         .onDisappear {
             activeLoadRequestID = UUID()
@@ -131,28 +138,72 @@ struct ReaderView: View {
                 }
             )
         } else if model.state.readerPreferences.mode == .vertical || model.state.readerPreferences.mode == .webtoon {
-            ScrollView(.vertical, showsIndicators: false) {
-                LazyVStack(spacing: model.state.readerPreferences.mode == .webtoon ? 0 : 12) {
-                    ForEach(currentPages) { page in
-                        ReaderPageSurface(
-                            page: page,
-                            filter: model.state.readerPreferences.colorFilter,
-                            fillViewport: false,
-                            allowsImagePan: false
-                        )
-                            .id("\(retryTick)-\(page.index)")
-                            .onAppear {
-                                pageIndex = page.index
+            GeometryReader { scrollGeometry in
+                ScrollViewReader { scrollProxy in
+                    ScrollView(.vertical, showsIndicators: false) {
+                        LazyVStack(spacing: model.state.readerPreferences.mode == .webtoon ? 0 : 12) {
+                            ForEach(Array(currentPages.enumerated()), id: \.element.id) { offset, page in
+                                ReaderPageSurface(
+                                    page: page,
+                                    filter: model.state.readerPreferences.colorFilter,
+                                    fillViewport: false,
+                                    allowsImagePan: false
+                                )
+                                    .id(pageAnchorID(for: offset))
+                                    .background(
+                                        GeometryReader { proxy in
+                                            Color.clear.preference(
+                                                key: ReaderVisiblePageFramesPreferenceKey.self,
+                                                value: [offset: proxy.frame(in: .named(verticalScrollCoordinateSpace))]
+                                            )
+                                        }
+                                    )
                             }
+                        }
+                        .padding(.vertical, model.state.readerPreferences.mode == .webtoon ? 0 : 12)
+                    }
+                    .coordinateSpace(name: verticalScrollCoordinateSpace)
+                    .ignoresSafeArea()
+                    .simultaneousGesture(verticalBoundaryGesture)
+                    .onPreferenceChange(ReaderVisiblePageFramesPreferenceKey.self) { frames in
+                        updateVerticalPageIndex(from: frames, viewportHeight: scrollGeometry.size.height)
+                    }
+                    .onChange(of: currentChapter.id) { _, _ in
+                        scrollToCurrentPage(using: scrollProxy, animated: false)
+                    }
+                    .onChange(of: retryTick) { _, _ in
+                        scrollToCurrentPage(using: scrollProxy, animated: false)
+                    }
+                    .onChange(of: pageLoadState) { _, newState in
+                        guard newState == .loaded else { return }
+                        scrollToCurrentPage(using: scrollProxy, animated: false)
                     }
                 }
-                .padding(.vertical, model.state.readerPreferences.mode == .webtoon ? 0 : 12)
+            }
+        } else {
+            GeometryReader { geometry in
+                pagedReaderBody(width: geometry.size.width)
             }
             .ignoresSafeArea()
-            .simultaneousGesture(verticalBoundaryGesture)
-        } else {
-            TabView(selection: displayedPageSelection) {
-                ForEach(Array(pagerItems.enumerated()), id: \.element.id) { displayIndex, item in
+        }
+    }
+
+    private func pagedReaderBody(width: CGFloat) -> some View {
+        let pageWidth = max(width, 1)
+        return ReaderPagedContainer(
+            currentIndex: $pagerDisplayIndex,
+            itemCount: pagerItems.count,
+            canMoveBackward: pagerDisplayIndex > 0,
+            canMoveForward: pagerDisplayIndex < max(pagerItems.count - 1, 0),
+            onPageChanged: { newIndex in
+                handlePagerDisplayIndexChange(newIndex)
+            },
+            onBoundaryAdvance: { translation in
+                handlePagerBoundaryAdvance(translationWidth: translation)
+            }
+        ) {
+            HStack(spacing: 0) {
+                ForEach(Array(pagerItems.enumerated()), id: \.element.id) { _, item in
                     Group {
                         switch item {
                         case .page(let page):
@@ -178,11 +229,23 @@ struct ReaderView: View {
                             )
                         }
                     }
-                    .tag(displayIndex)
+                    .frame(width: pageWidth)
                     .ignoresSafeArea()
                 }
             }
-            .tabViewStyle(.page(indexDisplayMode: .never))
+        }
+        .ignoresSafeArea()
+        .onAppear {
+            syncPagerDisplayIndex(animated: false)
+        }
+        .onChange(of: pageIndex) { _, _ in
+            syncPagerDisplayIndex(animated: true)
+        }
+        .onChange(of: currentChapter.id) { _, _ in
+            syncPagerDisplayIndex(animated: false)
+        }
+        .onChange(of: model.state.readerPreferences.mode) { _, _ in
+            syncPagerDisplayIndex(animated: false)
         }
     }
 
@@ -288,19 +351,18 @@ struct ReaderView: View {
                 if total > 1 {
                     Slider(
                         value: Binding(
-                            get: { sliderPageIndex },
-                            set: { sliderPageIndex = $0 }
+                            get: { Double(pageIndex + 1) },
+                            set: { value in
+                                let newIndex = max(0, min(total - 1, Int(value.rounded()) - 1))
+                                if newIndex != pageIndex {
+                                    pageIndex = newIndex
+                                }
+                            }
                         ),
                         in: 1...Double(total),
                         step: 1
                     )
                     .tint(.white)
-                    .onChange(of: sliderPageIndex) { _, value in
-                        let newIndex = max(0, min(total - 1, Int(value.rounded()) - 1))
-                        if newIndex != pageIndex {
-                            pageIndex = newIndex
-                        }
-                    }
                 } else {
                     Capsule()
                         .fill(Color.white.opacity(0.16))
@@ -370,6 +432,13 @@ struct ReaderView: View {
         return resolved.pages.isEmpty ? currentChapter.pages : resolved.pages
     }
 
+    private var currentChapterResumeProgress: ReadingProgress? {
+        guard let progress = model.progress(for: manga), progress.chapterID == currentChapter.id else {
+            return nil
+        }
+        return progress
+    }
+
     private var isVerticalReader: Bool {
         model.state.readerPreferences.mode == .vertical || model.state.readerPreferences.mode == .webtoon
     }
@@ -390,27 +459,6 @@ struct ReaderView: View {
             items.append(.nextChapter)
         }
         return items
-    }
-
-    private var displayedPageSelection: Binding<Int> {
-        Binding(
-            get: { pagerDisplayIndex(for: pageIndex) },
-            set: { newValue in
-                let bounded = max(0, min(max(pagerItems.count - 1, 0), newValue))
-                switch pagerItems[bounded] {
-                case .page:
-                    pageIndex = actualPageIndex(forDisplayedIndex: bounded)
-                case .previousChapter:
-                    if let chapter = previousChapterForCurrentMode() {
-                        transitionToChapter(chapter, pageIndex: lastPageIndex(for: chapter))
-                    }
-                case .nextChapter:
-                    if let chapter = nextChapterForCurrentMode() {
-                        transitionToChapter(chapter, pageIndex: 0)
-                    }
-                }
-            }
-        )
     }
 
     private var readerBarBackground: some ShapeStyle {
@@ -543,6 +591,7 @@ struct ReaderView: View {
     }
 
     private func transitionToChapter(_ chapter: Chapter, pageIndex targetPageIndex: Int) {
+        canPersistPageProgress = false
         pendingPageIndexAfterChapterChange = targetPageIndex
         pageLoadState = .idle
         currentChapter = chapter
@@ -560,13 +609,16 @@ struct ReaderView: View {
 
     private func startPageLoad(forceRefresh: Bool) {
         if !forceRefresh, !currentPages.isEmpty {
-            pageLoadState = .loaded
-            prefetchAroundCurrentPage()
+            if pageLoadState != .loaded {
+                pageLoadState = .loaded
+            }
+            finalizeResolvedPages()
             return
         }
         let requestID = UUID()
         activeLoadRequestID = requestID
         let chapterSnapshot = currentChapter
+        canPersistPageProgress = false
         pageLoadState = .loading
         Task {
             let pages = forceRefresh
@@ -598,23 +650,20 @@ struct ReaderView: View {
             retryTick += 1
         }
 
-        let targetIndex = pendingPageIndexAfterChapterChange ?? pageIndex
-        let boundedPageIndex = min(max(targetIndex, 0), max(currentPages.count - 1, 0))
-        pageIndex = boundedPageIndex
-        sliderPageIndex = Double(boundedPageIndex + 1)
-        pendingPageIndexAfterChapterChange = nil
         pageLoadState = currentPages.isEmpty ? .failed : .loaded
-        prefetchAroundCurrentPage()
+        finalizeResolvedPages()
     }
 
     private func pagerDisplayIndex(for actualIndex: Int) -> Int {
-        let baseIndex = isRTLPager ? max(currentPages.count - 1 - actualIndex, 0) : actualIndex
+        let boundedActualIndex = boundedPageIndex(for: actualIndex)
+        let baseIndex = isRTLPager ? max(currentPages.count - 1 - boundedActualIndex, 0) : boundedActualIndex
         return baseIndex + 1
     }
 
     private func actualPageIndex(forDisplayedIndex displayedIndex: Int) -> Int {
-        let pageDisplayIndex = max(displayedIndex - 1, 0)
-        return isRTLPager ? max(currentPages.count - 1 - pageDisplayIndex, 0) : pageDisplayIndex
+        let pageDisplayIndex = min(max(displayedIndex - 1, 0), max(currentPages.count - 1, 0))
+        let actualIndex = isRTLPager ? max(currentPages.count - 1 - pageDisplayIndex, 0) : pageDisplayIndex
+        return boundedPageIndex(for: actualIndex)
     }
 
     private func prefetchAroundCurrentPage() {
@@ -629,6 +678,116 @@ struct ReaderView: View {
         guard !window.isEmpty else { return }
         prefetchTask = Task {
             await ReaderImagePipeline.shared.prefetch(window, chapterID: chapterID, limit: prefetchCount)
+        }
+    }
+
+    private func finalizeResolvedPages() {
+        guard !currentPages.isEmpty else {
+            canPersistPageProgress = false
+            return
+        }
+
+        canPersistPageProgress = false
+        let targetIndex = pendingPageIndexAfterChapterChange
+            ?? (!hasAppliedResumeProgress ? currentChapterResumeProgress?.pageIndex : nil)
+            ?? pageIndex
+        let boundedIndex = boundedPageIndex(for: targetIndex)
+        pageIndex = boundedIndex
+        hasAppliedResumeProgress = true
+        pendingPageIndexAfterChapterChange = nil
+        syncPagerDisplayIndex(animated: false)
+        prefetchAroundCurrentPage()
+        persistProgress()
+        canPersistPageProgress = true
+    }
+
+    private func syncPagerDisplayIndex(animated: Bool) {
+        guard !isVerticalReader else { return }
+        let targetIndex = pagerDisplayIndex(for: pageIndex)
+        guard targetIndex != pagerDisplayIndex else { return }
+        if animated {
+            withAnimation(.interactiveSpring(response: 0.28, dampingFraction: 0.9)) {
+                pagerDisplayIndex = targetIndex
+            }
+        } else {
+            pagerDisplayIndex = targetIndex
+        }
+    }
+
+    private func handlePagerDisplayIndexChange(_ newIndex: Int) {
+        guard pagerItems.indices.contains(newIndex) else { return }
+        switch pagerItems[newIndex] {
+        case .page:
+            let actualIndex = actualPageIndex(forDisplayedIndex: newIndex)
+            if actualIndex != pageIndex {
+                pageIndex = actualIndex
+            }
+        case .previousChapter, .nextChapter:
+            break
+        }
+    }
+
+    private func handlePagerBoundaryAdvance(translationWidth: CGFloat) {
+        guard pagerItems.indices.contains(pagerDisplayIndex) else { return }
+        let movingForward = isRTLPager ? translationWidth > 0 : translationWidth < 0
+        switch pagerItems[pagerDisplayIndex] {
+        case .nextChapter:
+            guard movingForward, let chapter = nextChapterForCurrentMode() else { return }
+            transitionToChapter(chapter, pageIndex: 0)
+        case .previousChapter:
+            guard !movingForward, let chapter = previousChapterForCurrentMode() else { return }
+            transitionToChapter(chapter, pageIndex: lastPageIndex(for: chapter))
+        case .page:
+            break
+        }
+    }
+
+    private func boundedPageIndex(for index: Int) -> Int {
+        min(max(index, 0), max(currentPages.count - 1, 0))
+    }
+
+    private func pageAnchorID(for index: Int) -> String {
+        "\(retryTick)-\(currentChapter.id)-\(index)"
+    }
+
+    private func scrollToCurrentPage(using proxy: ScrollViewProxy, animated: Bool) {
+        guard isVerticalReader, pageLoadState == .loaded, !currentPages.isEmpty else { return }
+        let action = {
+            proxy.scrollTo(pageAnchorID(for: boundedPageIndex(for: pageIndex)), anchor: .top)
+        }
+        if animated {
+            withAnimation(.easeInOut(duration: 0.2), action)
+        } else {
+            action()
+        }
+    }
+
+    private func updateVerticalPageIndex(from frames: [Int: CGRect], viewportHeight: CGFloat) {
+        guard isVerticalReader, pageLoadState == .loaded, !frames.isEmpty else { return }
+        let viewport = CGRect(x: 0, y: 0, width: 1, height: viewportHeight)
+        let visibleFrames = frames.filter { _, frame in
+            !frame.intersection(viewport).isNull
+        }
+        guard !visibleFrames.isEmpty else { return }
+
+        let selectedIndex: Int?
+        if let coveringTop = visibleFrames
+            .filter({ _, frame in frame.minY <= 1 && frame.maxY > 1 })
+            .min(by: { lhs, rhs in lhs.key < rhs.key }) {
+            selectedIndex = coveringTop.key
+        } else {
+            selectedIndex = visibleFrames.min(by: { lhs, rhs in
+                if lhs.value.minY == rhs.value.minY {
+                    return lhs.key < rhs.key
+                }
+                return lhs.value.minY < rhs.value.minY
+            })?.key
+        }
+
+        guard let selectedIndex else { return }
+        let boundedIndex = boundedPageIndex(for: selectedIndex)
+        if boundedIndex != pageIndex {
+            pageIndex = boundedIndex
         }
     }
 }
@@ -661,6 +820,72 @@ private enum ReaderPagerItem: Identifiable {
             return page.id
         case .nextChapter:
             return "transition-next"
+        }
+    }
+}
+
+private struct ReaderVisiblePageFramesPreferenceKey: PreferenceKey {
+    static var defaultValue: [Int: CGRect] = [:]
+
+    static func reduce(value: inout [Int: CGRect], nextValue: () -> [Int: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
+    }
+}
+
+private struct ReaderPagedContainer<Content: View>: View {
+    @Binding var currentIndex: Int
+    let itemCount: Int
+    let canMoveBackward: Bool
+    let canMoveForward: Bool
+    let onPageChanged: (Int) -> Void
+    let onBoundaryAdvance: (CGFloat) -> Void
+    @ViewBuilder let content: Content
+
+    @GestureState private var dragTranslation: CGFloat = 0
+
+    var body: some View {
+        GeometryReader { geometry in
+            content
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                .offset(x: -CGFloat(currentIndex) * geometry.size.width + dragTranslation)
+                .animation(.interactiveSpring(response: 0.28, dampingFraction: 0.9), value: currentIndex)
+                .contentShape(Rectangle())
+                .clipped()
+                .gesture(
+                    DragGesture(minimumDistance: 12, coordinateSpace: .local)
+                        .updating($dragTranslation) { value, state, _ in
+                            guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                            state = value.translation.width
+                        }
+                        .onEnded { value in
+                            handleDragEnded(value, width: geometry.size.width)
+                        }
+                )
+        }
+    }
+
+    private func handleDragEnded(_ value: DragGesture.Value, width: CGFloat) {
+        guard itemCount > 0 else { return }
+        guard abs(value.translation.width) > abs(value.translation.height) else { return }
+
+        let threshold = max(width * 0.18, 48)
+        let predicted = value.predictedEndTranslation.width
+        let shouldMove = abs(value.translation.width) > threshold || abs(predicted) > width * 0.32
+        guard shouldMove else { return }
+
+        let movingLeft = value.translation.width < 0
+        let nextIndex = min(max(currentIndex + (movingLeft ? 1 : -1), 0), itemCount - 1)
+
+        if nextIndex != currentIndex {
+            currentIndex = nextIndex
+            onPageChanged(nextIndex)
+            return
+        }
+
+        if movingLeft, !canMoveForward {
+            onBoundaryAdvance(value.translation.width)
+        } else if !movingLeft, !canMoveBackward {
+            onBoundaryAdvance(value.translation.width)
         }
     }
 }

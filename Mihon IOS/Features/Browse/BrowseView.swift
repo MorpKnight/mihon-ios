@@ -259,7 +259,6 @@ struct SourceView: View {
         }
         .contextMenu {
             Button {
-                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                 appModel.toggleLibrary(manga)
             } label: {
                 if isInLibrary {
@@ -271,7 +270,6 @@ struct SourceView: View {
         }
         .swipeActions(edge: .leading) {
             Button {
-                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                 appModel.toggleLibrary(manga)
             } label: {
                 if isInLibrary {
