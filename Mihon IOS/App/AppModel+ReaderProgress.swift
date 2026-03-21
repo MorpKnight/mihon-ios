@@ -120,10 +120,10 @@ extension AppModel {
         return items[index - 1]
     }
 
-    func updateProgress(for manga: Manga, chapter: Chapter, pageIndex: Int) {
+    func updateProgress(for manga: Manga, chapter: Chapter, pageIndex: Int, totalPages: Int? = nil) {
         let previous = state.progress.first(where: { $0.mangaID == manga.id })
         let previousTotalPages = previous?.chapterID == chapter.id ? previous?.totalPages ?? 0 : 0
-        let effectiveTotalPages = max(chapter.pages.count, previousTotalPages)
+        let effectiveTotalPages = max(totalPages ?? chapter.pages.count, previousTotalPages)
         let boundedPage = min(max(pageIndex, 0), max(effectiveTotalPages - 1, 0))
         let record = ReadingProgress(
             mangaID: manga.id,
