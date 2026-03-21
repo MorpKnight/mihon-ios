@@ -76,7 +76,11 @@ extension AppModel {
     }
 
     func setDefaultCategoryID(_ categoryID: String) {
-        state.libraryPreferences.defaultCategoryID = categoryID
+        if categoryID.isEmpty || state.categories.contains(where: { $0.id == categoryID }) {
+            state.libraryPreferences.defaultCategoryID = categoryID
+        } else {
+            state.libraryPreferences.defaultCategoryID = state.categories.first?.id ?? ""
+        }
         persist()
     }
 
@@ -167,7 +171,7 @@ extension AppModel {
     func setBiometricUnlockEnabled(_ enabled: Bool) {
         state.securityPreferences.requireBiometricUnlock = Self.biometricLockFeatureEnabled ? enabled : false
         isAppUnlocked = true
-        biometricErrorMessage = Self.biometricLockFeatureEnabled ? biometricErrorMessage : nil
+        biometricErrorMessage = nil
         persist()
     }
 

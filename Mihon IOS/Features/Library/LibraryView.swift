@@ -6,10 +6,17 @@
 import SwiftUI
 
 struct LibraryView: View {
+    private struct QuickReadTarget: Hashable, Identifiable {
+        var id: String { "\(manga.id)::\(chapter.id)" }
+        let manga: Manga
+        let chapter: Chapter
+    }
+
     @EnvironmentObject private var model: AppModel
     @State private var selectedCategoryID: String?
     @State private var searchText = ""
     @State private var sortMode: LibrarySortMode = .recent
+    @State private var quickReadTarget: QuickReadTarget?
 
     private var items: [LibraryManga] {
         model.libraryItems(selectedCategoryID: selectedCategoryID, searchText: searchText, sortMode: sortMode)
@@ -27,7 +34,7 @@ struct LibraryView: View {
                                 VStack(alignment: .leading, spacing: 6) {
                                     Text(item.manga.title)
                                         .font(.headline)
-                                    Text(item.progress.map { "\(chapter.title) • Page \($0.pageIndex + 1) of \($0.totalPages)" } ?? chapter.title)
+                                    Text(model.progressDisplayText(for: item.manga, fallbackChapter: chapter) ?? chapter.title)
                                         .font(.subheadline)
                                         .foregroundStyle(.secondary)
                                 }
@@ -77,15 +84,9 @@ struct LibraryView: View {
                                         .foregroundStyle(.secondary)
                                     HStack(spacing: 8) {
                                         if let progress = item.progress {
-                                            if let chapter = model.chapter(for: progress.chapterID, in: item.manga) {
-                                                Text("\(chapter.title) • Page \(progress.pageIndex + 1) of \(progress.totalPages)")
-                                                    .font(.caption)
-                                                    .foregroundStyle(.secondary)
-                                            } else {
-                                                Text("Page \(progress.pageIndex + 1) of \(progress.totalPages)")
-                                                    .font(.caption)
-                                                    .foregroundStyle(.secondary)
-                                            }
+                                            Text(model.progressDisplayText(for: item.manga) ?? progress.chapterTitle ?? "Page \(progress.pageIndex + 1) of \(max(progress.totalPages, 1))")
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
                                         }
                                         if model.state.libraryPreferences.showDownloadedBadge,
                                            model.isTitleDownloaded(manga: item.manga) {
@@ -100,10 +101,8 @@ struct LibraryView: View {
                         }
                         .contextMenu {
                             Button {
-                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                                // Example: Quick Read
                                 if let chapter = model.startChapter(for: item.manga) {
-                                    // Normally we would invoke a navigation hack or state via environment, but for now we just play haptic
+                                    quickReadTarget = QuickReadTarget(manga: item.manga, chapter: chapter)
                                 }
                             } label: {
                                 Label("Read", systemImage: "book")
@@ -111,7 +110,6 @@ struct LibraryView: View {
 
                             if !model.state.securityPreferences.lockLibraryEdits {
                                 Button(role: .destructive) {
-                                    UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
                                     model.toggleLibrary(item.manga)
                                 } label: {
                                     Label("Remove from Library", systemImage: "trash")
@@ -121,7 +119,6 @@ struct LibraryView: View {
                         .swipeActions {
                             if !model.state.securityPreferences.lockLibraryEdits {
                                 Button(role: .destructive) {
-                                    UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
                                     model.toggleLibrary(item.manga)
                                 } label: {
                                     Label("Delete", systemImage: "trash")
@@ -134,6 +131,9 @@ struct LibraryView: View {
         }
         .searchable(text: $searchText, prompt: "Search library")
         .navigationTitle("Library")
+        .navigationDestination(item: $quickReadTarget) { target in
+            ReaderView(manga: target.manga, initialChapter: target.chapter)
+        }
         .onAppear {
             sortMode = model.preferredLibrarySortMode()
         }

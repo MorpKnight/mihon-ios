@@ -50,6 +50,10 @@ struct CacheStats: Hashable {
 
 protocol AppCacheManaging {
     func image(for url: URL, key: String, policy: CachePolicy, intent: ImageDecodeIntent, loader: @escaping @Sendable () async throws -> Data) async throws -> UIImage
+    func readerImageData(for key: String, policy: CachePolicy, loader: @escaping @Sendable () async throws -> Data) async throws -> Data
+    func readerPreviewImage(for key: String, policy: CachePolicy, normalizedCropRect: CGRect, maxPixelSize: CGFloat, loader: @escaping @Sendable () async throws -> Data) async throws -> UIImage
+    func readerTileImage(for key: String, policy: CachePolicy, normalizedCropRect: CGRect, targetPixelSize: CGSize, loader: @escaping @Sendable () async throws -> Data) async throws -> UIImage
+    func readerImageDimensions(for key: String, policy: CachePolicy, loader: @escaping @Sendable () async throws -> Data) async throws -> CGSize
     func data(for key: String, domain: CacheDomain, policy: CachePolicy, ttl: TimeInterval?, loader: @escaping @Sendable () async throws -> Data) async throws -> Data
     func value<T: Codable>(for key: String, domain: CacheDomain, policy: CachePolicy, ttl: TimeInterval?, loader: @escaping @Sendable () async throws -> T) async throws -> T
     func clear(_ domain: CacheDomain) async
@@ -120,6 +124,94 @@ actor AppCacheController: AppCacheManaging {
 
         memoryImageCache.setObject(image, forKey: imageCacheKey, cost: imageData.count)
         return image
+    }
+
+    func readerImageData(for key: String, policy: CachePolicy, loader: @escaping @Sendable () async throws -> Data) async throws -> Data {
+        let cacheKey = namespacedKey(key, domain: .image)
+
+        if policy != .reloadIgnoringCache, let diskValue = try? loadDiskEntry(for: cacheKey, domain: .image) {
+            if !isExpired(diskValue.metadata.expirationDate) {
+                hitCount += 1
+                return diskValue.payload
+            }
+            try? removeDiskEntry(for: cacheKey, domain: .image)
+        }
+
+        if let task = inFlightData[cacheKey] {
+            hitCount += 1
+            return try await task.value
+        }
+
+        missCount += 1
+        let task = Task<Data, Error> {
+            try await loader()
+        }
+        inFlightData[cacheKey] = task
+
+        do {
+            let payload = try await task.value
+            if policy != .memoryOnly {
+                try storeDiskEntry(payload: payload, for: cacheKey, domain: .image, ttl: 60 * 60 * 24 * 7)
+                try trimDiskIfNeeded(for: .image)
+            }
+            inFlightData[cacheKey] = nil
+            return payload
+        } catch {
+            inFlightData[cacheKey] = nil
+            throw error
+        }
+    }
+
+    func readerPreviewImage(
+        for key: String,
+        policy: CachePolicy,
+        normalizedCropRect: CGRect,
+        maxPixelSize: CGFloat,
+        loader: @escaping @Sendable () async throws -> Data
+    ) async throws -> UIImage {
+        let imageCacheKey = "\(key)|reader-preview|\(Self.rectKey(normalizedCropRect))|\(Int(maxPixelSize.rounded()))"
+        if policy != .reloadIgnoringCache, let cached = memoryImageCache.object(forKey: imageCacheKey) {
+            hitCount += 1
+            return cached
+        }
+
+        let imageData = try await readerImageData(for: key, policy: policy, loader: loader)
+        guard let image = Self.croppedDownsampledImage(data: imageData, normalizedCropRect: normalizedCropRect, targetPixelSize: CGSize(width: maxPixelSize, height: maxPixelSize)) else {
+            throw URLError(.cannotDecodeContentData)
+        }
+
+        memoryImageCache.setObject(image, forKey: imageCacheKey, cost: Self.imageCost(for: image))
+        return image
+    }
+
+    func readerTileImage(
+        for key: String,
+        policy: CachePolicy,
+        normalizedCropRect: CGRect,
+        targetPixelSize: CGSize,
+        loader: @escaping @Sendable () async throws -> Data
+    ) async throws -> UIImage {
+        let imageCacheKey = "\(key)|reader-tile|\(Self.rectKey(normalizedCropRect))|\(Self.sizeKey(targetPixelSize))"
+        if policy != .reloadIgnoringCache, let cached = memoryImageCache.object(forKey: imageCacheKey) {
+            hitCount += 1
+            return cached
+        }
+
+        let imageData = try await readerImageData(for: key, policy: policy, loader: loader)
+        guard let image = Self.croppedDownsampledImage(data: imageData, normalizedCropRect: normalizedCropRect, targetPixelSize: targetPixelSize) else {
+            throw URLError(.cannotDecodeContentData)
+        }
+
+        memoryImageCache.setObject(image, forKey: imageCacheKey, cost: Self.imageCost(for: image))
+        return image
+    }
+
+    func readerImageDimensions(for key: String, policy: CachePolicy, loader: @escaping @Sendable () async throws -> Data) async throws -> CGSize {
+        let imageData = try await readerImageData(for: key, policy: policy, loader: loader)
+        guard let dimensions = Self.imageDimensions(data: imageData) else {
+            throw URLError(.cannotDecodeContentData)
+        }
+        return dimensions
     }
 
     func data(for key: String, domain: CacheDomain, policy: CachePolicy, ttl: TimeInterval?, loader: @escaping @Sendable () async throws -> Data) async throws -> Data {
@@ -340,5 +432,70 @@ actor AppCacheController: AppCacheManaging {
         guard let source = CGImageSourceCreateWithData(data as CFData, options) else { return nil }
         guard let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return UIImage(data: data) }
         return UIImage(cgImage: cgImage)
+    }
+
+    private static func imageDimensions(data: Data) -> CGSize? {
+        let options = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let source = CGImageSourceCreateWithData(data as CFData, options) else { return nil }
+        guard
+            let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+            let width = properties[kCGImagePropertyPixelWidth] as? CGFloat,
+            let height = properties[kCGImagePropertyPixelHeight] as? CGFloat
+        else {
+            return nil
+        }
+        return CGSize(width: width, height: height)
+    }
+
+    private static func croppedDownsampledImage(data: Data, normalizedCropRect: CGRect, targetPixelSize: CGSize) -> UIImage? {
+        let normalizedRect = normalizedCropRect.standardized.clampedToUnitRect
+        let options = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let source = CGImageSourceCreateWithData(data as CFData, options) else { return nil }
+
+        let previewMaxPixel = max(
+            targetPixelSize.width / max(normalizedRect.width, 0.01),
+            targetPixelSize.height / max(normalizedRect.height, 0.01)
+        )
+        let thumbnailOptions = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceThumbnailMaxPixelSize: max(previewMaxPixel, 1),
+            kCGImageSourceCreateThumbnailWithTransform: true,
+        ] as CFDictionary
+
+        guard let downsampled = CGImageSourceCreateThumbnailAtIndex(source, 0, thumbnailOptions) else { return nil }
+        let cropRect = CGRect(
+            x: normalizedRect.origin.x * CGFloat(downsampled.width),
+            y: normalizedRect.origin.y * CGFloat(downsampled.height),
+            width: normalizedRect.width * CGFloat(downsampled.width),
+            height: normalizedRect.height * CGFloat(downsampled.height)
+        ).integral
+        guard cropRect.width > 0, cropRect.height > 0 else { return UIImage(cgImage: downsampled) }
+        guard let cropped = downsampled.cropping(to: cropRect) else { return UIImage(cgImage: downsampled) }
+        return UIImage(cgImage: cropped)
+    }
+
+    private static func rectKey(_ rect: CGRect) -> String {
+        let values = [rect.origin.x, rect.origin.y, rect.size.width, rect.size.height].map { Int(($0 * 10_000).rounded()) }
+        return values.map(String.init).joined(separator: "x")
+    }
+
+    private static func sizeKey(_ size: CGSize) -> String {
+        "\(Int(size.width.rounded()))x\(Int(size.height.rounded()))"
+    }
+
+    private static func imageCost(for image: UIImage) -> Int {
+        guard let cgImage = image.cgImage else { return 0 }
+        return cgImage.bytesPerRow * cgImage.height
+    }
+}
+
+private extension CGRect {
+    var clampedToUnitRect: CGRect {
+        CGRect(
+            x: min(max(origin.x, 0), 1),
+            y: min(max(origin.y, 0), 1),
+            width: min(max(size.width, 0), 1 - min(max(origin.x, 0), 1)),
+            height: min(max(size.height, 0), 1 - min(max(origin.y, 0), 1))
+        )
     }
 }

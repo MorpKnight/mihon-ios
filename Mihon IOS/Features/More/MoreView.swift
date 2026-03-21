@@ -7,6 +7,7 @@ import SwiftUI
 
 struct MoreView: View {
     @EnvironmentObject private var model: AppModel
+    @State private var blockedLinkMessage: String?
 
     var body: some View {
         List {
@@ -67,15 +68,31 @@ struct MoreView: View {
                     Label("About", systemImage: "info.circle")
                 }
 
-                Link(destination: URL(string: "https://mihon.app/docs/faq/general")!) {
+                Button {
+                    blockedLinkMessage = "Help belum siap. Tautan eksternal masih ditutup sementara."
+                } label: {
                     Label("Help", systemImage: "questionmark.circle")
                 }
+                .foregroundStyle(.primary)
 
-                Link(destination: URL(string: "https://mihon.app")!) {
+                Button {
+                    blockedLinkMessage = "Donate belum siap. Tautan eksternal masih ditutup sementara."
+                } label: {
                     Label("Donate", systemImage: "heart.circle")
                 }
+                .foregroundStyle(.primary)
             }
         }
         .navigationTitle("More")
+        .alert("Coming Soon", isPresented: Binding(
+            get: { blockedLinkMessage != nil },
+            set: { if !$0 { blockedLinkMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) {
+                blockedLinkMessage = nil
+            }
+        } message: {
+            Text(blockedLinkMessage ?? "")
+        }
     }
 }

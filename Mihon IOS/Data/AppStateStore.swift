@@ -47,9 +47,6 @@ struct AppStateStore {
     private func migrate(_ state: PersistedState) -> PersistedState {
         var migrated = state
         migrated.schemaVersion = PersistedState.currentSchemaVersion
-        if migrated.categories.isEmpty {
-            migrated.categories = PersistedState.default.categories
-        }
         return migrated
     }
 }

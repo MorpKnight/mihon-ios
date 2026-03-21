@@ -13,7 +13,6 @@ struct HistoryView: View {
         List {
             Section {
                 Button("Clear History", role: .destructive) {
-                    UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
                     model.clearHistory()
                 }
             }
@@ -43,7 +42,6 @@ struct HistoryView: View {
                     }
                     .swipeActions {
                         Button(role: .destructive) {
-                            UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
                             model.removeHistoryEntry(entry.id)
                         } label: {
                             Label("Delete", systemImage: "trash")

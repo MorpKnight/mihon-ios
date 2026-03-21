@@ -441,6 +441,8 @@ struct SettingsSearchView: View {
 }
 
 struct AboutView: View {
+    @State private var blockedLinkMessage: String?
+
     private var versionLabel: String {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Development"
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0"
@@ -456,11 +458,28 @@ struct AboutView: View {
             }
 
             Section("Links") {
-                Link("Website", destination: URL(string: "https://mihon.app")!)
-                Link("Documentation", destination: URL(string: "https://mihon.app/docs/faq/general")!)
+                Button("Website") {
+                    blockedLinkMessage = "Website belum siap dibuka dari aplikasi. Tautan eksternal masih ditutup sementara."
+                }
+                .foregroundStyle(.primary)
+
+                Button("Documentation") {
+                    blockedLinkMessage = "Documentation belum siap dibuka dari aplikasi. Tautan eksternal masih ditutup sementara."
+                }
+                .foregroundStyle(.primary)
             }
         }
         .navigationTitle("About")
+        .alert("Coming Soon", isPresented: Binding(
+            get: { blockedLinkMessage != nil },
+            set: { if !$0 { blockedLinkMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) {
+                blockedLinkMessage = nil
+            }
+        } message: {
+            Text(blockedLinkMessage ?? "")
+        }
     }
 }
 

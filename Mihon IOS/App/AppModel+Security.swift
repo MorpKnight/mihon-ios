@@ -10,6 +10,7 @@ extension AppModel {
     func lockAppIfNeeded() {
         guard Self.biometricLockFeatureEnabled, state.securityPreferences.requireBiometricUnlock else { return }
         isAppUnlocked = false
+        biometricErrorMessage = nil
     }
 
     func unlockAppIfNeeded() async {
@@ -24,29 +25,35 @@ extension AppModel {
             return
         }
 
-        let context = LAContext()
-        context.localizedCancelTitle = "Cancel"
-        var authError: NSError?
-
-        guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &authError) else {
-            biometricErrorMessage = authError?.localizedDescription ?? "Face ID is not available on this device."
-            appendDiagnostic(kind: .security, title: "Biometric Unavailable", message: biometricErrorMessage ?? "Face ID is not available.", metadata: [:])
-            return
-        }
-
-        do {
-            let success = try await context.evaluatePolicy(
-                .deviceOwnerAuthenticationWithBiometrics,
-                localizedReason: "Unlock Mihon to continue reading and browsing."
-            )
-            if success {
-                isAppUnlocked = true
-                biometricErrorMessage = nil
+        biometricErrorMessage = nil
+        switch await biometricAuthenticator.evaluate(reason: "Unlock Mihon to continue reading and browsing.") {
+        case .success:
+            isAppUnlocked = true
+            biometricErrorMessage = nil
+        case .failure(let error):
+            isAppUnlocked = false
+            if let message = userFacingBiometricMessage(for: error) {
+                biometricErrorMessage = message
+                appendDiagnostic(kind: .security, title: "Biometric Unlock Failed", message: message, metadata: [:])
             }
-        } catch {
-            biometricErrorMessage = error.localizedDescription
-            appendDiagnostic(kind: .security, title: "Biometric Unlock Failed", message: error.localizedDescription, metadata: [:])
         }
     }
-}
 
+    private func userFacingBiometricMessage(for error: Error) -> String? {
+        if let laError = error as? LAError {
+            switch laError.code {
+            case .userCancel, .systemCancel, .appCancel:
+                return nil
+            case .biometryLockout:
+                return "Face ID is temporarily locked. Authenticate with passcode, then try again."
+            case .biometryNotAvailable:
+                return "Face ID is not available on this device."
+            case .biometryNotEnrolled:
+                return "Face ID is not set up. Please enroll Face ID in Settings."
+            default:
+                return laError.localizedDescription
+            }
+        }
+        return error.localizedDescription
+    }
+}

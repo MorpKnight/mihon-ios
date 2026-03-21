@@ -1,7 +1,7 @@
 # Mihon iOS (Unofficial Port)
 
 [![Swift](https://img.shields.io/badge/Swift-5.9-orange.svg)](https://swift.org)
-[![iOS](https://img.shields.io/badge/iOS-15.0+-blue.svg)](https://developer.apple.com/ios)
+[![iOS](https://img.shields.io/badge/iOS-26.2+-blue.svg)](https://developer.apple.com/ios)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
 **⚠️ Important: This is an unofficial, independent port.**
@@ -56,7 +56,7 @@ Mihon IOS/
 
 - macOS 14.0+ (Sonoma or later)
 - Xcode 15.0+ (or latest stable version)
-- iOS 15.0+ deployment target
+- iOS 26.2+ deployment target
 - Swift 5.9+
 
 ### Setup Instructions
@@ -101,14 +101,11 @@ xcodebuild -scheme "Mihon IOS" -destination 'platform=iOS Simulator,name=iPhone 
 
 ## 🧪 Testing
 
-The project includes unit and UI tests:
+Automated test targets are planned but not yet added to the project. For now, use CI build checks and manual validation on core flows (launch, browse, reader, downloads).
 
 ```bash
-# Run all tests
-xcodebuild test -scheme "Mihon IOS" -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest'
-
-# Run specific test target
-xcodebuild test -scheme "Mihon IOS" -only-testing:"MihonIOSTests" -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest'
+# Build verification
+xcodebuild -scheme "Mihon IOS" -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' build
 ```
 
 ## 📦 Extensions System

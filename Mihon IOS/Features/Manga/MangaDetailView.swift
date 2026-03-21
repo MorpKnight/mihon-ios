@@ -210,6 +210,8 @@ struct MangaDetailView: View {
 
             Section("Chapters") {
                 ForEach(sortedChapters) { chapter in
+                    let progress = model.progress(for: displayManga)
+                    let isCurrentProgressChapter = progress?.chapterID == chapter.id
                     NavigationLink {
                         ReaderView(manga: displayManga, initialChapter: chapter)
                     } label: {
@@ -217,6 +219,10 @@ struct MangaDetailView: View {
                             HStack {
                                 Text(chapter.title)
                                 Spacer()
+                                if isCurrentProgressChapter {
+                                    Image(systemName: "book.fill")
+                                        .foregroundStyle(.blue)
+                                }
                                 if chapter.isDownloaded {
                                     Image(systemName: "arrow.down.circle.fill")
                                         .foregroundStyle(.teal)
@@ -225,6 +231,11 @@ struct MangaDetailView: View {
                             Text(chapter.releaseDate.formatted(date: .abbreviated, time: .omitted))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+                            if isCurrentProgressChapter, let progress {
+                                Text("Last read: \(model.progressDisplayText(for: displayManga, fallbackChapter: chapter) ?? "Page \(progress.pageIndex + 1) of \(max(progress.totalPages, 1))")")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
 
                             if !chapter.isDownloaded, let job = model.downloadJob(for: displayManga, chapter: chapter) {
                                 ChapterDownloadInlineStatusView(job: job)

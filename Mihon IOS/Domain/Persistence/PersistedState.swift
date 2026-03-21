@@ -31,11 +31,7 @@ struct PersistedState: Codable, Hashable {
 
     static let `default` = PersistedState(
         schemaVersion: currentSchemaVersion,
-        categories: [
-            Category(id: "reading", name: "Reading", systemImage: "books.vertical"),
-            Category(id: "favorites", name: "Favorites", systemImage: "heart"),
-            Category(id: "downloaded", name: "Downloaded", systemImage: "arrow.down.circle"),
-        ],
+        categories: [],
         library: [],
         progress: [],
         history: [],
@@ -49,7 +45,7 @@ struct PersistedState: Codable, Hashable {
         ),
         libraryPreferences: LibraryPreferences(
             showContinueReading: true,
-            defaultCategoryID: "reading",
+            defaultCategoryID: "",
             showDownloadedBadge: true,
             showUnreadBadge: true,
             sortMode: .recent

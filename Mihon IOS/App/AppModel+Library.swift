@@ -6,6 +6,8 @@
 import Foundation
 
 extension AppModel {
+    private var uncategorizedCategoryID: String { "" }
+
     func note(for manga: Manga) -> String {
         state.mangaNotes[manga.id, default: ""]
     }
@@ -37,7 +39,7 @@ extension AppModel {
             state.library.insert(
                 LibraryEntry(
                     mangaID: manga.id,
-                    categoryID: state.libraryPreferences.defaultCategoryID,
+                    categoryID: resolvedDefaultCategoryID(),
                     addedAt: .now
                 ),
                 at: 0
@@ -57,13 +59,27 @@ extension AppModel {
     }
 
     func categoryName(for id: String) -> String {
-        categories.first(where: { $0.id == id })?.name ?? "Library"
+        if id.isEmpty {
+            return "Uncategorized"
+        }
+        return categories.first(where: { $0.id == id })?.name ?? "Uncategorized"
+    }
+
+    func resolvedDefaultCategoryID() -> String {
+        if let preferred = categories.first(where: { $0.id == state.libraryPreferences.defaultCategoryID }) {
+            return preferred.id
+        }
+        return categories.first?.id ?? uncategorizedCategoryID
     }
 
     func addCategory(named name: String) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        state.categories.append(Category(id: UUID().uuidString, name: trimmed, systemImage: "folder"))
+        let category = Category(id: UUID().uuidString, name: trimmed, systemImage: "folder")
+        state.categories.append(category)
+        if state.libraryPreferences.defaultCategoryID.isEmpty {
+            state.libraryPreferences.defaultCategoryID = category.id
+        }
         persist()
     }
 
@@ -74,9 +90,8 @@ extension AppModel {
     }
 
     func deleteCategory(_ categoryID: String) {
-        guard state.categories.count > 1 else { return }
         state.categories.removeAll { $0.id == categoryID }
-        let fallback = state.categories.first?.id ?? PersistedState.default.libraryPreferences.defaultCategoryID
+        let fallback = state.categories.first?.id ?? uncategorizedCategoryID
         if state.libraryPreferences.defaultCategoryID == categoryID {
             state.libraryPreferences.defaultCategoryID = fallback
         }
