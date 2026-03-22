@@ -98,7 +98,24 @@ extension AppModel {
         appendDiagnostic(kind: .stateTransition, title: "Chapter Load Started", message: "Refreshing chapter list.", metadata: ["manga": manga.title, "sourceID": manga.sourceID])
         do {
             let details = try await repository.chapters(sourceID: manga.sourceID, manga: manga)
-            let merged = mergeDownloadedChapters(existing: peekCachedChapters(for: manga.id) ?? [], incoming: details.chapters)
+            if let anomaly = detectChapterOrderAnomaly(in: details.chapters) {
+                appendDiagnostic(
+                    kind: .source,
+                    title: "Chapter Order Normalized",
+                    message: "Detected anomalous chapter ordering from the source and normalized it by chapter number.",
+                    metadata: [
+                        "mangaID": manga.id,
+                        "mangaTitle": manga.title,
+                        "sourceID": manga.sourceID,
+                        "mismatchCount": "\(anomaly.mismatchCount)",
+                        "originalOrder": anomaly.originalPreview,
+                        "normalizedOrder": anomaly.normalizedPreview
+                    ]
+                )
+            }
+            let merged = normalizedChapters(
+                mergeDownloadedChapters(existing: peekCachedChapters(for: manga.id) ?? [], incoming: details.chapters)
+            )
             setCachedChapters(merged, for: manga.id)
             sourceErrors[manga.sourceID] = nil
             trimSourceCachesIfNeeded()
@@ -154,9 +171,9 @@ extension AppModel {
     }
 
     private func mergeDownloadedChapters(existing: [Chapter], incoming: [Chapter]) -> [Chapter] {
-        guard !existing.isEmpty else { return incoming }
+        guard !existing.isEmpty else { return normalizedChapters(incoming) }
         let existingByID = Dictionary(uniqueKeysWithValues: existing.map { ($0.id, $0) })
-        return incoming.map { chapter in
+        let merged = incoming.map { chapter in
             guard let cached = existingByID[chapter.id], cached.isDownloaded || !cached.pages.isEmpty else {
                 return chapter
             }
@@ -170,6 +187,7 @@ extension AppModel {
                 pages: cached.pages.isEmpty ? chapter.pages : cached.pages
             )
         }
+        return normalizedChapters(merged)
     }
 
     func trimSourceCachesIfNeeded() {

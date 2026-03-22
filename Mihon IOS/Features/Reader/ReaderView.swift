@@ -33,6 +33,12 @@ struct ReaderView: View {
     @State private var transitionState: ReaderTransitionState?
     @State private var isChapterTransitioning = false
     @State private var pendingVerticalScrollTarget: Int?
+    @State private var committedSnapshot: ReaderContentSnapshot?
+    @State private var deferredSnapshot: ReaderContentSnapshot?
+    @State private var deferredSnapshotPreferredPageIndex: Int?
+    @State private var readerInteractionPhase: ReaderInteractionPhase = .idle
+    @State private var pagerSettleTask: Task<Void, Never>?
+    @State private var exactPagerWidth: CGFloat = 0
 
     private let verticalScrollCoordinateSpace = "reader.vertical.scroll"
     private static let chapterEndPageTarget = Int.max
@@ -49,7 +55,7 @@ struct ReaderView: View {
             Color.black.ignoresSafeArea()
 
             GeometryReader { geometry in
-                readerBody
+                readerBody(in: geometry.size)
                     .contentShape(Rectangle())
                     .simultaneousGesture(
                         SpatialTapGesture()
@@ -57,6 +63,12 @@ struct ReaderView: View {
                                 handleTap(at: value.location, in: geometry.size)
                             }
                     )
+                    .onAppear {
+                        exactPagerWidth = max(geometry.size.width, 1)
+                    }
+                    .onChange(of: geometry.size.width) { _, newWidth in
+                        exactPagerWidth = max(newWidth, 1)
+                    }
             }
 
             if showingChrome {
@@ -108,9 +120,18 @@ struct ReaderView: View {
             surfaceInteractionStates = [:]
             transitionState = nil
             pendingVerticalScrollTarget = nil
+            committedSnapshot = nil
+            deferredSnapshot = nil
+            deferredSnapshotPreferredPageIndex = nil
+            readerInteractionPhase = .idle
+            pagerSettleTask?.cancel()
+            pagerSettleTask = nil
             pageIndex = pendingPageIndexAfterChapterChange ?? 0
             hasAppliedResumeProgress = false
             startPageLoad(forceRefresh: false)
+        }
+        .onChange(of: model.state.readerPreferences.mode) { _, _ in
+            refreshCommittedSnapshot(preferredPageIndex: nil, animatedSync: false)
         }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active, canPersistPageProgress, !logicalPages.isEmpty { persistProgress() }
@@ -118,15 +139,16 @@ struct ReaderView: View {
         .onDisappear {
             activeLoadRequestID = UUID()
             prefetchTask?.cancel()
+            pagerSettleTask?.cancel()
             prefetchTask = nil
             Task {
-                await ReaderImagePipeline.shared.cancelPrefetch(for: currentChapter.id)
+                await ReaderImagePipeline.shared.cancelWindow(for: currentChapter.id)
             }
         }
     }
 
     @ViewBuilder
-    private var readerBody: some View {
+    private func readerBody(in rootSize: CGSize) -> some View {
         if pageLoadState == .loading && currentPages.isEmpty {
             ProgressView("Loading chapter…")
                 .tint(.white)
@@ -140,7 +162,7 @@ struct ReaderView: View {
                     startPageLoad(forceRefresh: true)
                 }
             )
-        } else if model.state.readerPreferences.mode == .vertical || model.state.readerPreferences.mode == .webtoon {
+        } else if activeReaderMode == .vertical || activeReaderMode == .webtoon {
             GeometryReader { scrollGeometry in
                 ScrollViewReader { scrollProxy in
                     ScrollView(.vertical, showsIndicators: false) {
@@ -167,6 +189,7 @@ struct ReaderView: View {
                                     filter: model.state.readerPreferences.colorFilter,
                                     fillViewport: false,
                                     allowsImagePan: false,
+                                    allowsHighDetailAtRest: true,
                                     onImageMetadataResolved: { size in
                                         registerImageSize(size, for: item.page.id)
                                     },
@@ -229,9 +252,7 @@ struct ReaderView: View {
                 }
             }
         } else {
-            GeometryReader { geometry in
-                pagedReaderBody(width: geometry.size.width)
-            }
+            pagedReaderBody(width: max(exactPagerWidth > 0 ? exactPagerWidth : rootSize.width, 1))
             .ignoresSafeArea()
         }
     }
@@ -241,6 +262,7 @@ struct ReaderView: View {
         return ReaderPagedContainer(
             currentIndex: $pagerDisplayIndex,
             itemCount: pagerItems.count,
+            pageWidth: pageWidth,
             allowsInteractivePaging: allowsInteractivePagerDragging,
             onDragChanged: { translation in
                 handlePagerDragChanged(translationWidth: translation)
@@ -263,6 +285,7 @@ struct ReaderView: View {
                                 filter: model.state.readerPreferences.colorFilter,
                                 fillViewport: true,
                                 allowsImagePan: true,
+                                allowsHighDetailAtRest: true,
                                 onImageMetadataResolved: { size in
                                     registerImageSize(size, for: renderItem.page.id)
                                 },
@@ -311,10 +334,6 @@ struct ReaderView: View {
             syncPagerDisplayIndex(animated: true)
         }
         .onChange(of: currentChapter.id) { _, _ in
-            syncPagerDisplayIndex(animated: false)
-        }
-        .onChange(of: model.state.readerPreferences.mode) { oldMode, newMode in
-            remapPageIndexForModeChange(from: oldMode, to: newMode)
             syncPagerDisplayIndex(animated: false)
         }
     }
@@ -494,7 +513,7 @@ struct ReaderView: View {
         HStack(spacing: 10) {
             ReaderBottomPill(
                 systemImage: readingModeSymbol,
-                title: model.state.readerPreferences.mode.title,
+                title: activeReaderMode.title,
                 isProminent: true
             ) {
                 cycleReadingMode()
@@ -521,9 +540,17 @@ struct ReaderView: View {
         .padding(.horizontal, 12)
     }
 
-    private var currentPages: [ReaderPage] {
+    private var liveResolvedPages: [ReaderPage] {
         let resolved = model.resolvedChapter(currentChapter)
         return resolved.pages.isEmpty ? currentChapter.pages : resolved.pages
+    }
+
+    private var currentPages: [ReaderPage] {
+        committedSnapshot?.pages ?? []
+    }
+
+    private var activeReaderMode: ReaderMode {
+        committedSnapshot?.mode ?? model.state.readerPreferences.mode
     }
 
     private var currentChapterResumeProgress: ReadingProgress? {
@@ -534,11 +561,11 @@ struct ReaderView: View {
     }
 
     private var isVerticalReader: Bool {
-        model.state.readerPreferences.mode == .vertical || model.state.readerPreferences.mode == .webtoon
+        activeReaderMode == .vertical || activeReaderMode == .webtoon
     }
 
     private var isWebtoonMode: Bool {
-        model.state.readerPreferences.mode == .webtoon
+        activeReaderMode == .webtoon
     }
 
     private var isNavigationSuspended: Bool {
@@ -550,11 +577,7 @@ struct ReaderView: View {
     }
 
     private var readerRenderData: ReaderRenderData {
-        ReaderRenderData.build(
-            pages: currentPages,
-            mode: model.state.readerPreferences.mode,
-            imageSizes: pageImageSizes
-        )
+        committedSnapshot?.renderData ?? ReaderRenderData(logicalPages: [], renderItems: [])
     }
 
     private var logicalPages: [ReaderLogicalPage] {
@@ -595,6 +618,7 @@ struct ReaderView: View {
     }
 
     private var currentPagerTransitionDirection: ReaderTransitionDirection? {
+        guard !isVerticalReader else { return nil }
         guard pagerItems.indices.contains(pagerDisplayIndex) else { return nil }
         switch pagerItems[pagerDisplayIndex] {
         case .previousChapter:
@@ -615,7 +639,7 @@ struct ReaderView: View {
     }
 
     private var readingModeSymbol: String {
-        switch model.state.readerPreferences.mode {
+        switch activeReaderMode {
         case .pagerDefault:
             return "rectangle.split.1x2"
         case .pagerLTR:
@@ -649,7 +673,7 @@ struct ReaderView: View {
     }
 
     private var isRTLPager: Bool {
-        switch model.state.readerPreferences.mode {
+        switch activeReaderMode {
         case .pagerDefault, .pagerRTL:
             return true
         case .pagerLTR, .vertical, .webtoon:
@@ -659,11 +683,13 @@ struct ReaderView: View {
 
     private func handleTap(at point: CGPoint, in size: CGSize) {
         guard !isNavigationSuspended else { return }
-        if currentPagerTransitionDirection != nil {
+        let zone = ReaderTapZone.resolve(point: point, in: size)
+        let intent = zone.intent(isRTLPager: isRTLPager)
+        if let transitionDirection = currentPagerTransitionDirection {
+            handleTransitionTap(intent: intent, transitionDirection: transitionDirection)
             return
         }
-        let zone = ReaderTapZone.resolve(point: point, in: size)
-        switch zone.intent(isRTLPager: isRTLPager) {
+        switch intent {
         case .toggleChrome:
             toggleChrome()
         case .forward:
@@ -675,6 +701,32 @@ struct ReaderView: View {
         case .none:
             break
         }
+    }
+
+    private func handleTransitionTap(intent: ReaderTapIntent, transitionDirection: ReaderTransitionDirection) {
+        switch intent {
+        case .toggleChrome:
+            toggleChrome()
+        case .forward:
+            if transitionDirection == .next {
+                confirmChapterTransition(.next)
+            } else {
+                returnFromTransitionOverlay()
+            }
+        case .backward:
+            if transitionDirection == .previous {
+                confirmChapterTransition(.previous)
+            } else {
+                returnFromTransitionOverlay()
+            }
+        case .none:
+            break
+        }
+    }
+
+    private func returnFromTransitionOverlay() {
+        resetTransitionState()
+        syncPagerDisplayIndex(animated: true)
     }
 
     private func advancePageForward() {
@@ -753,6 +805,9 @@ struct ReaderView: View {
         pageLoadState = .idle
         isChapterTransitioning = true
         transitionState = nil
+        readerInteractionPhase = .idle
+        pagerSettleTask?.cancel()
+        pagerSettleTask = nil
         currentChapter = chapter
     }
 
@@ -770,7 +825,7 @@ struct ReaderView: View {
     }
 
     private func startPageLoad(forceRefresh: Bool) {
-        if !forceRefresh, !currentPages.isEmpty {
+        if !forceRefresh, !liveResolvedPages.isEmpty {
             if pageLoadState != .loaded {
                 pageLoadState = .loaded
             }
@@ -812,7 +867,7 @@ struct ReaderView: View {
             retryTick += 1
         }
 
-        pageLoadState = currentPages.isEmpty ? .failed : .loaded
+        pageLoadState = liveResolvedPages.isEmpty ? .failed : .loaded
         if pageLoadState != .loading {
             isChapterTransitioning = false
         }
@@ -829,25 +884,28 @@ struct ReaderView: View {
 
     private func prefetchAroundCurrentPage() {
         let prefetchCount = model.state.advancedPreferences.imagePrefetchCount
-        guard prefetchCount > 0 else { return }
-        prefetchTask?.cancel()
-        let chapterID = currentChapter.id
-        let windowPages = logicalPages.enumerated().compactMap { index, logicalPage -> ReaderPage? in
-            guard abs(index - pageIndex) <= prefetchCount else { return nil }
-            return logicalPage.sourcePage
+        guard prefetchCount > 0, let committedSnapshot else {
+            prefetchTask?.cancel()
+            prefetchTask = Task {
+                await ReaderImagePipeline.shared.cancelWindow(for: currentChapter.id)
+            }
+            return
         }
-        let window = Array(Set(windowPages.compactMap { page -> URL? in
-            guard let remoteURL = page.remoteURL else { return nil }
-            return URL(string: remoteURL)
-        }))
-        guard !window.isEmpty else { return }
+        prefetchTask?.cancel()
         prefetchTask = Task {
-            await ReaderImagePipeline.shared.prefetch(window, chapterID: chapterID, limit: prefetchCount)
+            await ReaderImagePipeline.shared.updateActiveWindow(
+                chapterID: committedSnapshot.chapterID,
+                logicalPages: committedSnapshot.renderData.logicalPages,
+                currentIndex: pageIndex,
+                lookahead: prefetchCount
+            )
         }
     }
 
     private func finalizeResolvedPages() {
-        guard !logicalPages.isEmpty else {
+        let snapshot = buildReaderSnapshot()
+        guard !snapshot.renderData.logicalPages.isEmpty else {
+            committedSnapshot = snapshot
             canPersistPageProgress = false
             return
         }
@@ -857,14 +915,13 @@ struct ReaderView: View {
             ?? (!hasAppliedResumeProgress ? currentChapterResumeProgress?.pageIndex : nil)
             ?? pageIndex
         let boundedIndex = targetIndex == Self.chapterEndPageTarget
-            ? max(logicalPages.count - 1, 0)
-            : boundedPageIndex(for: targetIndex)
-        pageIndex = boundedIndex
+            ? max(snapshot.renderData.logicalPages.count - 1, 0)
+            : min(max(targetIndex, 0), max(snapshot.renderData.logicalPages.count - 1, 0))
         deferredResumePageIndex = targetIndex == Self.chapterEndPageTarget || targetIndex > boundedIndex ? targetIndex : nil
         hasAppliedResumeProgress = true
         pendingPageIndexAfterChapterChange = nil
         resetTransitionState()
-        syncPagerDisplayIndex(animated: false)
+        commitSnapshot(snapshot, preferredPageIndex: targetIndex, animatedSync: false)
         prefetchAroundCurrentPage()
         persistProgress()
         canPersistPageProgress = true
@@ -875,6 +932,7 @@ struct ReaderView: View {
         let targetIndex = pagerDisplayIndex(for: pageIndex)
         guard targetIndex != pagerDisplayIndex else { return }
         if animated {
+            beginPagerSettling()
             withAnimation(.interactiveSpring(response: 0.28, dampingFraction: 0.9)) {
                 pagerDisplayIndex = targetIndex
             }
@@ -972,57 +1030,10 @@ struct ReaderView: View {
             return
         }
 
-        let oldData = ReaderRenderData.build(
-            pages: currentPages,
-            mode: model.state.readerPreferences.mode,
-            imageSizes: pageImageSizes
-        )
-        let anchor = oldData.anchor(for: pageIndex)
-
         var updatedSizes = pageImageSizes
         updatedSizes[pageID] = rounded
-        let newData = ReaderRenderData.build(
-            pages: currentPages,
-            mode: model.state.readerPreferences.mode,
-            imageSizes: updatedSizes
-        )
-
         pageImageSizes = updatedSizes
-        if deferredResumePageIndex == Self.chapterEndPageTarget {
-            pageIndex = max(newData.logicalPages.count - 1, 0)
-            self.deferredResumePageIndex = Self.chapterEndPageTarget
-        } else if let deferredResumePageIndex, deferredResumePageIndex < newData.logicalPages.count {
-            pageIndex = deferredResumePageIndex
-            self.deferredResumePageIndex = nil
-        } else if let anchor, let mappedIndex = newData.index(for: anchor) {
-            pageIndex = mappedIndex
-        } else {
-            pageIndex = min(pageIndex, max(newData.logicalPages.count - 1, 0))
-        }
-        syncPagerDisplayIndex(animated: false)
-    }
-
-    private func remapPageIndexForModeChange(from oldMode: ReaderMode, to newMode: ReaderMode) {
-        guard oldMode != newMode else { return }
-        let oldData = ReaderRenderData.build(
-            pages: currentPages,
-            mode: oldMode,
-            imageSizes: pageImageSizes
-        )
-        let newData = ReaderRenderData.build(
-            pages: currentPages,
-            mode: newMode,
-            imageSizes: pageImageSizes
-        )
-        guard let anchor = oldData.anchor(for: pageIndex) else {
-            pageIndex = min(pageIndex, max(newData.logicalPages.count - 1, 0))
-            return
-        }
-        if let remappedIndex = newData.index(for: anchor) {
-            pageIndex = remappedIndex
-        } else {
-            pageIndex = min(pageIndex, max(newData.logicalPages.count - 1, 0))
-        }
+        refreshCommittedSnapshot(preferredPageIndex: deferredResumePageIndex, animatedSync: false)
     }
 
     private func updateSurfaceInteractionState(_ state: ReaderInteractionState, for itemID: String) {
@@ -1083,6 +1094,7 @@ struct ReaderView: View {
     }
 
     private func stepPager(movingLeft: Bool) {
+        beginPagerSettling()
         let nextIndex = min(max(pagerDisplayIndex + (movingLeft ? 1 : -1), 0), max(pagerItems.count - 1, 0))
         guard nextIndex != pagerDisplayIndex else { return }
         pagerDisplayIndex = nextIndex
@@ -1092,6 +1104,9 @@ struct ReaderView: View {
 
     private func handlePagerDragChanged(translationWidth: CGFloat) {
         guard !isNavigationSuspended else { return }
+        if abs(translationWidth) > 0 {
+            readerInteractionPhase = .dragging
+        }
         guard let direction = currentPagerTransitionDirection else {
             if transitionDirection != nil {
                 resetTransitionState()
@@ -1123,6 +1138,7 @@ struct ReaderView: View {
         let threshold = max(containerWidth * 0.18, 48)
         let shouldMove = abs(translationWidth) > threshold || abs(predictedTranslationWidth) > containerWidth * 0.32
         guard shouldMove else {
+            settlePagerInteraction()
             resetTransitionState()
             return
         }
@@ -1144,6 +1160,96 @@ struct ReaderView: View {
         }
 
         stepPager(movingLeft: movingLeft)
+    }
+
+    private func buildReaderSnapshot(
+        mode: ReaderMode? = nil,
+        pages: [ReaderPage]? = nil,
+        imageSizes: [String: CGSize]? = nil
+    ) -> ReaderContentSnapshot {
+        let resolvedMode = mode ?? model.state.readerPreferences.mode
+        let resolvedPages = pages ?? liveResolvedPages
+        let resolvedImageSizes = imageSizes ?? pageImageSizes
+        return ReaderContentSnapshot(
+            chapterID: currentChapter.id,
+            mode: resolvedMode,
+            pages: resolvedPages,
+            imageSizes: resolvedImageSizes,
+            renderData: ReaderRenderData.build(
+                pages: resolvedPages,
+                mode: resolvedMode,
+                imageSizes: resolvedImageSizes
+            )
+        )
+    }
+
+    private func refreshCommittedSnapshot(preferredPageIndex: Int?, animatedSync: Bool) {
+        let snapshot = buildReaderSnapshot()
+        if shouldDeferSnapshot(snapshot) {
+            deferredSnapshot = snapshot
+            deferredSnapshotPreferredPageIndex = preferredPageIndex
+            return
+        }
+        commitSnapshot(snapshot, preferredPageIndex: preferredPageIndex, animatedSync: animatedSync)
+    }
+
+    private func commitSnapshot(_ snapshot: ReaderContentSnapshot, preferredPageIndex: Int?, animatedSync: Bool) {
+        let previousSnapshot = committedSnapshot
+        let previousPageCount = previousSnapshot?.renderData.logicalPages.count ?? 0
+        let anchor = previousSnapshot?.renderData.anchor(
+            for: min(max(pageIndex, 0), max(previousPageCount - 1, 0))
+        )
+        committedSnapshot = snapshot
+        deferredSnapshot = nil
+        deferredSnapshotPreferredPageIndex = nil
+
+        let resolvedIndex: Int
+        if let preferredPageIndex {
+            if preferredPageIndex == Self.chapterEndPageTarget {
+                resolvedIndex = max(snapshot.renderData.logicalPages.count - 1, 0)
+            } else {
+                resolvedIndex = min(max(preferredPageIndex, 0), max(snapshot.renderData.logicalPages.count - 1, 0))
+            }
+        } else if let anchor, let mappedIndex = snapshot.renderData.index(for: anchor) {
+            resolvedIndex = mappedIndex
+        } else {
+            resolvedIndex = min(max(pageIndex, 0), max(snapshot.renderData.logicalPages.count - 1, 0))
+        }
+
+        pageIndex = resolvedIndex
+        syncPagerDisplayIndex(animated: animatedSync)
+    }
+
+    private func flushDeferredSnapshotIfPossible() {
+        guard readerInteractionPhase == .idle, !isChapterTransitioning, let deferredSnapshot else { return }
+        commitSnapshot(
+            deferredSnapshot,
+            preferredPageIndex: deferredSnapshotPreferredPageIndex,
+            animatedSync: false
+        )
+        prefetchAroundCurrentPage()
+    }
+
+    private func shouldDeferSnapshot(_ snapshot: ReaderContentSnapshot) -> Bool {
+        guard let committedSnapshot else { return false }
+        guard committedSnapshot.chapterID == snapshot.chapterID else { return false }
+        return readerInteractionPhase != .idle || transitionState != nil || isChapterTransitioning
+    }
+
+    private func beginPagerSettling() {
+        readerInteractionPhase = .settling
+        settlePagerInteraction()
+    }
+
+    private func settlePagerInteraction() {
+        readerInteractionPhase = .settling
+        pagerSettleTask?.cancel()
+        pagerSettleTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 320_000_000)
+            guard !Task.isCancelled else { return }
+            readerInteractionPhase = .idle
+            flushDeferredSnapshotIfPossible()
+        }
     }
 }
 
@@ -1185,6 +1291,20 @@ private struct ReaderVisiblePageFramesPreferenceKey: PreferenceKey {
     static func reduce(value: inout [Int: CGRect], nextValue: () -> [Int: CGRect]) {
         value.merge(nextValue(), uniquingKeysWith: { _, new in new })
     }
+}
+
+private struct ReaderContentSnapshot {
+    let chapterID: String
+    let mode: ReaderMode
+    let pages: [ReaderPage]
+    let imageSizes: [String: CGSize]
+    let renderData: ReaderRenderData
+}
+
+private enum ReaderInteractionPhase {
+    case idle
+    case dragging
+    case settling
 }
 
 private struct ReaderRenderData {
@@ -1374,6 +1494,7 @@ private enum ReaderSpreadHalf: String {
 private struct ReaderPagedContainer<Content: View>: View {
     @Binding var currentIndex: Int
     let itemCount: Int
+    let pageWidth: CGFloat
     let allowsInteractivePaging: Bool
     let onDragChanged: (CGFloat) -> Void
     let onDragEnded: (CGFloat, CGFloat, CGFloat) -> Void
@@ -1385,7 +1506,7 @@ private struct ReaderPagedContainer<Content: View>: View {
         GeometryReader { geometry in
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-                .offset(x: -CGFloat(currentIndex) * geometry.size.width + (allowsInteractivePaging ? dragTranslation : 0))
+                .offset(x: -CGFloat(currentIndex) * pageWidth + (allowsInteractivePaging ? dragTranslation : 0))
                 .animation(.interactiveSpring(response: 0.28, dampingFraction: 0.9), value: currentIndex)
                 .contentShape(Rectangle())
                 .clipped()
@@ -1401,7 +1522,7 @@ private struct ReaderPagedContainer<Content: View>: View {
                         }
                         .onEnded { value in
                             onDragChanged(0)
-                            onDragEnded(value.translation.width, value.predictedEndTranslation.width, geometry.size.width)
+                            onDragEnded(value.translation.width, value.predictedEndTranslation.width, pageWidth)
                         }
                 )
         }
@@ -1487,6 +1608,7 @@ private struct ReaderPageSurface: View {
     let filter: ReaderColorFilter
     let fillViewport: Bool
     let allowsImagePan: Bool
+    let allowsHighDetailAtRest: Bool
     let onImageMetadataResolved: (CGSize) -> Void
     let onInteractionStateChanged: (ReaderInteractionState) -> Void
     @State private var resolvedSourcePixelSize: CGSize = .zero
@@ -1535,6 +1657,7 @@ private struct ReaderPageSurface: View {
                     normalizedCropRect: normalizedCropRect,
                     colorTransform: ReaderColorTransform(filter: filter),
                     allowsZoom: allowsImagePan,
+                    allowsDetailTiles: allowsImagePan || allowsHighDetailAtRest,
                     retryToken: retryToken,
                     onSourceSizeResolved: { size in
                         resolvedSourcePixelSize = size
@@ -1726,7 +1849,8 @@ actor ReaderImagePipeline {
     private let cache: AppCacheManaging = AppCacheController.shared
     private var inFlight: [URL: Task<UIImage, Error>] = [:]
     private var prefetchTasksByURL: [URL: Task<Void, Never>] = [:]
-    private var activePrefetchChapterID: String?
+    private var activeWindowChapterID: String?
+    private var activeWindowURLs: Set<URL> = []
     private let ciContext = CIContext(options: nil)
 
     func previewImage(
@@ -1845,21 +1969,36 @@ actor ReaderImagePipeline {
         }
     }
 
-    func prefetch(_ urls: [URL], chapterID: String, limit: Int) async {
-        let boundedURLs = Array(urls.prefix(max(limit, 0)))
-        let targetSet = Set(boundedURLs)
+    fileprivate func updateActiveWindow(
+        chapterID: String,
+        logicalPages: [ReaderLogicalPage],
+        currentIndex: Int,
+        lookahead: Int
+    ) async {
+        let boundedLookahead = max(lookahead, 0)
+        let targetURLs = Set(logicalPages.enumerated().compactMap { index, logicalPage -> URL? in
+            guard abs(index - currentIndex) <= boundedLookahead else { return nil }
+            guard let remoteURL = logicalPage.sourcePage.remoteURL else { return nil }
+            return URL(string: remoteURL)
+        })
 
-        if activePrefetchChapterID != chapterID {
+        if activeWindowChapterID != chapterID {
             cancelPrefetchTasks()
-            activePrefetchChapterID = chapterID
+            activeWindowURLs.removeAll()
+            activeWindowChapterID = chapterID
         }
 
-        for (url, task) in prefetchTasksByURL where !targetSet.contains(url) {
+        let staleURLs = activeWindowURLs.subtracting(targetURLs)
+        for (url, task) in prefetchTasksByURL where !targetURLs.contains(url) {
             task.cancel()
             prefetchTasksByURL[url] = nil
         }
+        for url in staleURLs {
+            inFlight[url]?.cancel()
+            inFlight[url] = nil
+        }
 
-        for url in boundedURLs {
+        for url in targetURLs {
             if Task.isCancelled { return }
             if inFlight[url] != nil || prefetchTasksByURL[url] != nil { continue }
             let task = Task<Void, Never> {
@@ -1871,6 +2010,11 @@ actor ReaderImagePipeline {
             }
             prefetchTasksByURL[url] = task
         }
+
+        if !staleURLs.isEmpty {
+            await cache.trimMemory(fraction: 0.15)
+        }
+        activeWindowURLs = targetURLs
     }
 
     func clear() async {
@@ -1879,13 +2023,16 @@ actor ReaderImagePipeline {
             task.cancel()
         }
         inFlight.removeAll()
+        activeWindowChapterID = nil
+        activeWindowURLs.removeAll()
         await cache.clear(.image)
     }
 
-    func cancelPrefetch(for chapterID: String? = nil) {
-        guard chapterID == nil || chapterID == activePrefetchChapterID else { return }
+    func cancelWindow(for chapterID: String? = nil) {
+        guard chapterID == nil || chapterID == activeWindowChapterID else { return }
         cancelPrefetchTasks()
-        activePrefetchChapterID = nil
+        activeWindowChapterID = nil
+        activeWindowURLs.removeAll()
     }
 
     private func cancelPrefetchTasks() {

@@ -71,6 +71,7 @@ struct ReaderTiledPageSurface: UIViewRepresentable {
     let normalizedCropRect: CGRect
     let colorTransform: ReaderColorTransform
     let allowsZoom: Bool
+    let allowsDetailTiles: Bool
     let retryToken: Int
     let onSourceSizeResolved: (CGSize) -> Void
     let onViewportStateChanged: (ReaderPageViewportState) -> Void
@@ -88,6 +89,7 @@ struct ReaderTiledPageSurface: UIViewRepresentable {
                 normalizedCropRect: normalizedCropRect,
                 colorTransform: colorTransform,
                 allowsZoom: allowsZoom,
+                allowsDetailTiles: allowsDetailTiles,
                 retryToken: retryToken
             )
         )
@@ -105,6 +107,7 @@ struct ReaderTiledPageSurface: UIViewRepresentable {
                 normalizedCropRect: normalizedCropRect,
                 colorTransform: colorTransform,
                 allowsZoom: allowsZoom,
+                allowsDetailTiles: allowsDetailTiles,
                 retryToken: retryToken
             )
         )
@@ -119,6 +122,7 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
         let normalizedCropRect: CGRect
         let colorTransform: ReaderColorTransform
         let allowsZoom: Bool
+        let allowsDetailTiles: Bool
         let retryToken: Int
     }
 
@@ -140,6 +144,7 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
     private var currentGeneration = UUID()
     private var didArmLeftPageTurn = false
     private var didArmRightPageTurn = false
+    private let tileLength: CGFloat = 256
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -162,6 +167,7 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
             || self.configuration?.normalizedCropRect != configuration.normalizedCropRect
             || self.configuration?.colorTransform != configuration.colorTransform
             || self.configuration?.allowsZoom != configuration.allowsZoom
+            || self.configuration?.allowsDetailTiles != configuration.allowsDetailTiles
             || self.configuration?.retryToken != configuration.retryToken
 
         self.configuration = configuration
@@ -258,7 +264,15 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
         guard let configuration else { return }
         guard bounds.width > 0, bounds.height > 0 else { return }
         let generation = currentGeneration
-        let maxPreviewPixels = max(bounds.width, bounds.height, 1) * UIScreen.main.scale * 1.5
+        let croppedAspectRatio = max(
+            croppedSourcePixelSize.width > 0 && croppedSourcePixelSize.height > 0
+                ? croppedSourcePixelSize.width / croppedSourcePixelSize.height
+                : configuration.normalizedCropRect.width / max(configuration.normalizedCropRect.height, 0.01),
+            0.01
+        )
+        let fittedPreviewSize = CGSize(width: bounds.width, height: bounds.width / croppedAspectRatio)
+            .aspectFit(in: bounds.size)
+        let maxPreviewPixels = max(fittedPreviewSize.width, fittedPreviewSize.height, 1) * UIScreen.main.scale * 3
         previewTask = Task { [weak self] in
             guard let self else { return }
             do {
@@ -325,36 +339,37 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
     }
 
     private func updateVisibleTiles() {
-        guard configuration?.allowsZoom == true else {
-            removeAllTiles()
-            publishViewportState()
-            return
-        }
-        guard scrollView.zoomScale > 1.01 else {
+        guard let configuration else { return }
+        guard configuration.allowsDetailTiles == true else {
             removeAllTiles()
             publishViewportState()
             return
         }
         guard contentView.bounds.width > 0, contentView.bounds.height > 0 else { return }
-        guard let configuration else { return }
+        let needsRestingDetailTiles = configuration.allowsDetailTiles && needsDetailTilesAtRest
+        guard scrollView.zoomScale > 1.01 || needsRestingDetailTiles else {
+            removeAllTiles()
+            publishViewportState()
+            return
+        }
 
         let scale = UIScreen.main.scale * scrollView.zoomScale
         let expandedVisibleRect = visibleContentRect().insetBy(dx: -160, dy: -160)
-        let tileLength: CGFloat = 256
-        let minColumn = max(Int(floor(expandedVisibleRect.minX / tileLength)), 0)
-        let maxColumn = max(Int(floor(expandedVisibleRect.maxX / tileLength)), minColumn)
-        let minRow = max(Int(floor(expandedVisibleRect.minY / tileLength)), 0)
-        let maxRow = max(Int(floor(expandedVisibleRect.maxY / tileLength)), minRow)
+        let effectiveTileLength = scrollView.zoomScale > 1.01 ? tileLength : max(contentView.bounds.width, contentView.bounds.height)
+        let minColumn = max(Int(floor(expandedVisibleRect.minX / effectiveTileLength)), 0)
+        let maxColumn = max(Int(floor(expandedVisibleRect.maxX / effectiveTileLength)), minColumn)
+        let minRow = max(Int(floor(expandedVisibleRect.minY / effectiveTileLength)), 0)
+        let maxRow = max(Int(floor(expandedVisibleRect.maxY / effectiveTileLength)), minRow)
 
         var neededKeys = Set<ReaderTileCacheKey>()
 
         for row in minRow...maxRow {
             for column in minColumn...maxColumn {
                 let tileRect = CGRect(
-                    x: CGFloat(column) * tileLength,
-                    y: CGFloat(row) * tileLength,
-                    width: tileLength,
-                    height: tileLength
+                    x: CGFloat(column) * effectiveTileLength,
+                    y: CGFloat(row) * effectiveTileLength,
+                    width: effectiveTileLength,
+                    height: effectiveTileLength
                 ).intersection(contentView.bounds)
                 guard !tileRect.isNull, tileRect.width > 0, tileRect.height > 0 else { continue }
 
@@ -368,7 +383,10 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
                 let request = ReaderTileRequest(
                     source: configuration.source,
                     normalizedCropRect: absoluteCropRect,
-                    targetPixelSize: CGSize(width: tileRect.width * scale, height: tileRect.height * scale),
+                    targetPixelSize: CGSize(
+                        width: tileRect.width * max(scale, UIScreen.main.scale * 1.25),
+                        height: tileRect.height * max(scale, UIScreen.main.scale * 1.25)
+                    ),
                     colorTransform: configuration.colorTransform
                 )
                 let key = request.cacheKey
@@ -462,6 +480,18 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
                 isRightEdgeReadyForPageTurn: scrollView.zoomScale > 1.01 && didArmLeftPageTurn
             )
         )
+    }
+
+    private var needsDetailTilesAtRest: Bool {
+        guard let previewImage = previewImageView.image else { return false }
+        guard contentView.bounds.width > 0, contentView.bounds.height > 0 else { return false }
+
+        let requiredWidth = contentView.bounds.width * UIScreen.main.scale
+        let requiredHeight = contentView.bounds.height * UIScreen.main.scale
+        let availableWidth = previewImage.size.width * previewImage.scale
+        let availableHeight = previewImage.size.height * previewImage.scale
+
+        return availableWidth < requiredWidth * 0.98 || availableHeight < requiredHeight * 0.98
     }
 }
 

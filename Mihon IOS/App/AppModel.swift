@@ -290,7 +290,7 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
     }
 
     func setCachedChapters(_ chapters: [Chapter], for mangaID: String) {
-        chapterRuntimeCache.setValue(chapters, forKey: mangaID)
+        chapterRuntimeCache.setValue(normalizedChapters(chapters), forKey: mangaID)
         chapterCache = chapterRuntimeCache.snapshot()
     }
 

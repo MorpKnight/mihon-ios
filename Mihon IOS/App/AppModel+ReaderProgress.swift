@@ -110,14 +110,14 @@ extension AppModel {
 
     func nextChapter(after chapter: Chapter, in manga: Manga) -> Chapter? {
         let items = chapters(for: manga)
-        guard let index = items.firstIndex(where: { $0.id == chapter.id }), index + 1 < items.count else { return nil }
-        return items[index + 1]
+        guard let index = items.firstIndex(where: { $0.id == chapter.id }), index > 0 else { return nil }
+        return items[index - 1]
     }
 
     func previousChapter(before chapter: Chapter, in manga: Manga) -> Chapter? {
         let items = chapters(for: manga)
-        guard let index = items.firstIndex(where: { $0.id == chapter.id }), index > 0 else { return nil }
-        return items[index - 1]
+        guard let index = items.firstIndex(where: { $0.id == chapter.id }), index + 1 < items.count else { return nil }
+        return items[index + 1]
     }
 
     func updateProgress(for manga: Manga, chapter: Chapter, pageIndex: Int, totalPages: Int? = nil) {
