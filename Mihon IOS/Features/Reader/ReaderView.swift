@@ -7,45 +7,52 @@ import SwiftUI
 import UIKit
 
 struct ReaderView: View {
-    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject var model: AppModel
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dismiss) private var dismiss
 
     let manga: Manga
     let initialChapter: Chapter
+    let imagePipeline: ReaderImagePipelining
 
-    @State private var currentChapter: Chapter
-    @State private var pageIndex: Int
+    @State var currentChapter: Chapter
+    @State var pageIndex: Int
     @State private var showingSettings = false
     @State private var showingActions = false
-    @State private var showingChrome = false
-    @State private var pageLoadState: ReaderContentLoadState = .idle
-    @State private var retryTick = 0
-    @State private var pendingPageIndexAfterChapterChange: Int?
-    @State private var activeLoadRequestID = UUID()
-    @State private var prefetchTask: Task<Void, Never>?
-    @State private var hasAppliedResumeProgress = false
-    @State private var canPersistPageProgress = false
-    @State private var pagerDisplayIndex = 1
-    @State private var pageImageSizes: [String: CGSize] = [:]
-    @State private var deferredResumePageIndex: Int?
-    @State private var surfaceInteractionStates: [String: ReaderInteractionState] = [:]
-    @State private var transitionState: ReaderTransitionState?
-    @State private var isChapterTransitioning = false
-    @State private var pendingVerticalScrollTarget: Int?
-    @State private var committedSnapshot: ReaderContentSnapshot?
-    @State private var deferredSnapshot: ReaderContentSnapshot?
-    @State private var deferredSnapshotPreferredPageIndex: Int?
-    @State private var readerInteractionPhase: ReaderInteractionPhase = .idle
-    @State private var pagerSettleTask: Task<Void, Never>?
+    @State var showingChrome = false
+    @State var pageLoadState: ReaderContentLoadState = .idle
+    @State var retryTick = 0
+    @State var pendingPageIndexAfterChapterChange: Int?
+    @State var activeLoadRequestID = UUID()
+    @State var prefetchTask: Task<Void, Never>?
+    @State var hasAppliedResumeProgress = false
+    @State var canPersistPageProgress = false
+    @State var pagerDisplayIndex = 1
+    @State var pageImageSizes: [String: CGSize] = [:]
+    @State var deferredResumePageIndex: Int?
+    @State var surfaceInteractionStates: [String: ReaderInteractionState] = [:]
+    @State var transitionState: ReaderTransitionState?
+    @State var isChapterTransitioning = false
+    @State var pendingVerticalScrollTarget: Int?
+    @State var committedSnapshot: ReaderContentSnapshot?
+    @State var deferredSnapshot: ReaderContentSnapshot?
+    @State var deferredSnapshotPreferredPageIndex: Int?
+    @State var readerInteractionPhase: ReaderInteractionPhase = .idle
+    @State var pagerSettleTask: Task<Void, Never>?
     @State private var exactPagerWidth: CGFloat = 0
+    @State var pageLuminanceByRenderItemID: [String: CGFloat] = [:]
 
     private let verticalScrollCoordinateSpace = "reader.vertical.scroll"
-    private static let chapterEndPageTarget = Int.max
+    static let chapterEndPageTarget = Int.max
 
-    init(manga: Manga, initialChapter: Chapter) {
+    init(
+        manga: Manga,
+        initialChapter: Chapter,
+        imagePipeline: ReaderImagePipelining = ReaderImagePipeline.shared
+    ) {
         self.manga = manga
         self.initialChapter = initialChapter
+        self.imagePipeline = imagePipeline
         _currentChapter = State(initialValue: initialChapter)
         _pageIndex = State(initialValue: 0)
     }
@@ -118,6 +125,7 @@ struct ReaderView: View {
             pageImageSizes = [:]
             deferredResumePageIndex = nil
             surfaceInteractionStates = [:]
+            pageLuminanceByRenderItemID = [:]
             transitionState = nil
             pendingVerticalScrollTarget = nil
             committedSnapshot = nil
@@ -133,6 +141,9 @@ struct ReaderView: View {
         .onChange(of: model.state.readerPreferences.mode) { _, _ in
             refreshCommittedSnapshot(preferredPageIndex: nil, animatedSync: false)
         }
+        .onChange(of: model.state.readerPreferences.spreadBehavior) { _, _ in
+            refreshCommittedSnapshot(preferredPageIndex: nil, animatedSync: false)
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active, canPersistPageProgress, !logicalPages.isEmpty { persistProgress() }
         }
@@ -142,7 +153,7 @@ struct ReaderView: View {
             pagerSettleTask?.cancel()
             prefetchTask = nil
             Task {
-                await ReaderImagePipeline.shared.cancelWindow(for: currentChapter.id)
+                await imagePipeline.cancelWindow(for: currentChapter.id)
             }
         }
     }
@@ -185,6 +196,7 @@ struct ReaderView: View {
 
                             ForEach(Array(verticalRenderItems.enumerated()), id: \.element.id) { offset, item in
                                 ReaderPageSurface(
+                                    imagePipeline: imagePipeline,
                                     item: item,
                                     filter: model.state.readerPreferences.colorFilter,
                                     fillViewport: false,
@@ -192,6 +204,8 @@ struct ReaderView: View {
                                     allowsHighDetailAtRest: true,
                                     onImageMetadataResolved: { size in
                                         registerImageSize(size, for: item.page.id)
+                                    },
+                                    onLuminanceResolved: { _ in
                                     },
                                     onInteractionStateChanged: { _ in
                                     }
@@ -264,6 +278,9 @@ struct ReaderView: View {
             itemCount: pagerItems.count,
             pageWidth: pageWidth,
             allowsInteractivePaging: allowsInteractivePagerDragging,
+            shouldCaptureDrag: { translationWidth, translationHeight in
+                shouldCapturePagerDrag(translationWidth: translationWidth, translationHeight: translationHeight)
+            },
             onDragChanged: { translation in
                 handlePagerDragChanged(translationWidth: translation)
             },
@@ -281,6 +298,7 @@ struct ReaderView: View {
                         switch item {
                         case .render(let renderItem):
                             ReaderPageSurface(
+                                imagePipeline: imagePipeline,
                                 item: renderItem,
                                 filter: model.state.readerPreferences.colorFilter,
                                 fillViewport: true,
@@ -288,6 +306,9 @@ struct ReaderView: View {
                                 allowsHighDetailAtRest: true,
                                 onImageMetadataResolved: { size in
                                     registerImageSize(size, for: renderItem.page.id)
+                                },
+                                onLuminanceResolved: { luminance in
+                                    registerPageLuminance(luminance, for: renderItem.id)
                                 },
                                 onInteractionStateChanged: { state in
                                     updateSurfaceInteractionState(state, for: renderItem.id)
@@ -514,171 +535,65 @@ struct ReaderView: View {
             ReaderBottomPill(
                 systemImage: readingModeSymbol,
                 title: activeReaderMode.title,
-                isProminent: true
+                isProminent: true,
+                foregroundColor: readerChromeForegroundColor,
+                backgroundTint: readerPillTintColor,
+                regularBackgroundOpacity: readerPillRegularOpacity,
+                prominentBackgroundOpacity: readerPillProminentOpacity
             ) {
                 cycleReadingMode()
             }
 
-            ReaderBottomPill(systemImage: orientationSymbol, title: model.state.readerPreferences.orientation.rawValue.capitalized) {
+            if !isVerticalReader {
+                ReaderBottomPill(
+                    systemImage: spreadBehaviorSymbol,
+                    title: spreadBehaviorTitle,
+                    foregroundColor: readerChromeForegroundColor,
+                    backgroundTint: readerPillTintColor,
+                    regularBackgroundOpacity: readerPillRegularOpacity,
+                    prominentBackgroundOpacity: readerPillProminentOpacity
+                ) {
+                    toggleSpreadBehavior()
+                }
+            }
+
+            ReaderBottomPill(
+                systemImage: orientationSymbol,
+                title: model.state.readerPreferences.orientation.rawValue.capitalized,
+                foregroundColor: readerChromeForegroundColor,
+                backgroundTint: readerPillTintColor,
+                regularBackgroundOpacity: readerPillRegularOpacity,
+                prominentBackgroundOpacity: readerPillProminentOpacity
+            ) {
                 cycleOrientation()
             }
 
             ReaderBottomPill(
                 systemImage: model.state.readerPreferences.showPageNumber ? "number.circle.fill" : "number.circle",
-                title: "Page"
+                title: "Page",
+                foregroundColor: readerChromeForegroundColor,
+                backgroundTint: readerPillTintColor,
+                regularBackgroundOpacity: readerPillRegularOpacity,
+                prominentBackgroundOpacity: readerPillProminentOpacity
             ) {
                 model.setReaderPageNumberVisible(!model.state.readerPreferences.showPageNumber)
             }
 
-            ReaderBottomPill(systemImage: "slider.horizontal.3", title: "Settings") {
+            ReaderBottomPill(
+                systemImage: "slider.horizontal.3",
+                title: "Settings",
+                foregroundColor: readerChromeForegroundColor,
+                backgroundTint: readerPillTintColor,
+                regularBackgroundOpacity: readerPillRegularOpacity,
+                prominentBackgroundOpacity: readerPillProminentOpacity
+            ) {
                 showingSettings = true
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .background(readerBarBackground, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
         .padding(.horizontal, 12)
-    }
-
-    private var liveResolvedPages: [ReaderPage] {
-        let resolved = model.resolvedChapter(currentChapter)
-        return resolved.pages.isEmpty ? currentChapter.pages : resolved.pages
-    }
-
-    private var currentPages: [ReaderPage] {
-        committedSnapshot?.pages ?? []
-    }
-
-    private var activeReaderMode: ReaderMode {
-        committedSnapshot?.mode ?? model.state.readerPreferences.mode
-    }
-
-    private var currentChapterResumeProgress: ReadingProgress? {
-        guard let progress = model.progress(for: manga), progress.chapterID == currentChapter.id else {
-            return nil
-        }
-        return progress
-    }
-
-    private var isVerticalReader: Bool {
-        activeReaderMode == .vertical || activeReaderMode == .webtoon
-    }
-
-    private var isWebtoonMode: Bool {
-        activeReaderMode == .webtoon
-    }
-
-    private var isNavigationSuspended: Bool {
-        isChapterTransitioning || pageLoadState == .loading
-    }
-
-    private var transitionDirection: ReaderTransitionDirection? {
-        transitionState?.direction
-    }
-
-    private var readerRenderData: ReaderRenderData {
-        committedSnapshot?.renderData ?? ReaderRenderData(logicalPages: [], renderItems: [])
-    }
-
-    private var logicalPages: [ReaderLogicalPage] {
-        readerRenderData.logicalPages
-    }
-
-    private var verticalRenderItems: [ReaderRenderItem] {
-        readerRenderData.renderItems
-    }
-
-    private var pagerRenderItems: [ReaderRenderItem] {
-        readerRenderData.renderItems
-    }
-
-    private var pagerItems: [ReaderPagerItem] {
-        var items: [ReaderPagerItem] = []
-        if isRTLPager {
-            items.append(.nextChapter)
-            items.append(contentsOf: pagerRenderItems.map(ReaderPagerItem.render))
-            items.append(.previousChapter)
-        } else {
-            items.append(.previousChapter)
-            items.append(contentsOf: pagerRenderItems.map(ReaderPagerItem.render))
-            items.append(.nextChapter)
-        }
-        return items
-    }
-
-    private var currentPagerRenderItem: ReaderRenderItem? {
-        guard pagerItems.indices.contains(pagerDisplayIndex) else { return nil }
-        guard case .render(let item) = pagerItems[pagerDisplayIndex] else { return nil }
-        return item
-    }
-
-    private var currentPagerInteractionState: ReaderInteractionState {
-        guard let currentPagerRenderItem else { return .default }
-        return surfaceInteractionStates[currentPagerRenderItem.id] ?? .default
-    }
-
-    private var currentPagerTransitionDirection: ReaderTransitionDirection? {
-        guard !isVerticalReader else { return nil }
-        guard pagerItems.indices.contains(pagerDisplayIndex) else { return nil }
-        switch pagerItems[pagerDisplayIndex] {
-        case .previousChapter:
-            return .previous
-        case .nextChapter:
-            return .next
-        case .render:
-            return nil
-        }
-    }
-
-    private var readerBarBackground: some ShapeStyle {
-        .ultraThinMaterial
-    }
-
-    private var readerCapsuleBackground: some ShapeStyle {
-        Color.white.opacity(0.14)
-    }
-
-    private var readingModeSymbol: String {
-        switch activeReaderMode {
-        case .pagerDefault:
-            return "rectangle.split.1x2"
-        case .pagerLTR:
-            return "text.book.closed"
-        case .pagerRTL:
-            return "text.book.closed.fill"
-        case .vertical:
-            return "rectangle.stack"
-        case .webtoon:
-            return "rectangle.portrait.on.rectangle.portrait"
-        }
-    }
-
-    private var orientationSymbol: String {
-        switch model.state.readerPreferences.orientation {
-        case .system:
-            return "iphone"
-        case .portrait:
-            return "iphone"
-        case .landscape:
-            return "iphone.landscape"
-        }
-    }
-
-    private var chapterLeadingIcon: String {
-        isRTLPager ? "chevron.right" : "chevron.left"
-    }
-
-    private var chapterTrailingIcon: String {
-        isRTLPager ? "chevron.left" : "chevron.right"
-    }
-
-    private var isRTLPager: Bool {
-        switch activeReaderMode {
-        case .pagerDefault, .pagerRTL:
-            return true
-        case .pagerLTR, .vertical, .webtoon:
-            return false
-        }
     }
 
     private func handleTap(at point: CGPoint, in size: CGSize) {
@@ -703,1623 +618,13 @@ struct ReaderView: View {
         }
     }
 
-    private func handleTransitionTap(intent: ReaderTapIntent, transitionDirection: ReaderTransitionDirection) {
-        switch intent {
-        case .toggleChrome:
-            toggleChrome()
-        case .forward:
-            if transitionDirection == .next {
-                confirmChapterTransition(.next)
-            } else {
-                returnFromTransitionOverlay()
-            }
-        case .backward:
-            if transitionDirection == .previous {
-                confirmChapterTransition(.previous)
-            } else {
-                returnFromTransitionOverlay()
-            }
-        case .none:
-            break
-        }
-    }
 
-    private func returnFromTransitionOverlay() {
-        resetTransitionState()
-        syncPagerDisplayIndex(animated: true)
-    }
+    
 
-    private func advancePageForward() {
-        if pageIndex + 1 < logicalPages.count {
-            let newIndex = pageIndex + 1
-            pageIndex = newIndex
-            if isVerticalReader {
-                pendingVerticalScrollTarget = newIndex
-            }
-            return
-        }
-        if isVerticalReader {
-            return
-        }
-        if let index = pagerTransitionIndex(for: .next) {
-            pagerDisplayIndex = index
-            resetTransitionState()
-        }
-    }
-
-    private func advancePageBackward() {
-        if pageIndex > 0 {
-            let newIndex = pageIndex - 1
-            pageIndex = newIndex
-            if isVerticalReader {
-                pendingVerticalScrollTarget = newIndex
-            }
-            return
-        }
-        if isVerticalReader {
-            return
-        }
-        if let index = pagerTransitionIndex(for: .previous) {
-            pagerDisplayIndex = index
-            resetTransitionState()
-        }
-    }
-
-    private func nextChapterForCurrentMode() -> Chapter? {
-        model.nextChapter(after: currentChapter, in: manga)
-    }
-
-    private func previousChapterForCurrentMode() -> Chapter? {
-        model.previousChapter(before: currentChapter, in: manga)
-    }
-
-    private func toggleChrome() {
-        withAnimation(.easeInOut(duration: 0.18)) {
-            showingChrome.toggle()
-        }
-    }
-
-    private func cycleReadingMode() {
-        let current = model.state.readerPreferences.mode
-        let modes = ReaderMode.allCases
-        guard let index = modes.firstIndex(of: current) else { return }
-        let next = modes[(index + 1) % modes.count]
-        model.setReaderMode(next)
-    }
-
-    private func cycleOrientation() {
-        let current = model.state.readerPreferences.orientation
-        let modes = ReaderOrientation.allCases
-        guard let index = modes.firstIndex(of: current) else { return }
-        let next = modes[(index + 1) % modes.count]
-        model.setReaderOrientation(next)
-    }
-
-    private func persistProgress() {
-        model.updateProgress(for: manga, chapter: currentChapter, pageIndex: pageIndex, totalPages: logicalPages.count)
-    }
-
-    private func transitionToChapter(_ chapter: Chapter, pageIndex targetPageIndex: Int) {
-        canPersistPageProgress = false
-        pendingPageIndexAfterChapterChange = targetPageIndex
-        pageLoadState = .idle
-        isChapterTransitioning = true
-        transitionState = nil
-        readerInteractionPhase = .idle
-        pagerSettleTask?.cancel()
-        pagerSettleTask = nil
-        currentChapter = chapter
-    }
-
-    private func lastPageIndex(for chapter: Chapter) -> Int {
-        if chapter.id == currentChapter.id {
-            return max(logicalPages.count - 1, 0)
-        }
-        if !chapter.pages.isEmpty {
-            return max(chapter.pages.count - 1, 0)
-        }
-        if let cached = model.chapters(for: manga).first(where: { $0.id == chapter.id }) {
-            return max(cached.pages.count - 1, 0)
-        }
-        return 0
-    }
-
-    private func startPageLoad(forceRefresh: Bool) {
-        if !forceRefresh, !liveResolvedPages.isEmpty {
-            if pageLoadState != .loaded {
-                pageLoadState = .loaded
-            }
-            finalizeResolvedPages()
-            return
-        }
-        let requestID = UUID()
-        activeLoadRequestID = requestID
-        let chapterSnapshot = currentChapter
-        canPersistPageProgress = false
-        pageLoadState = .loading
-        Task {
-            let pages = forceRefresh
-                ? await model.retryPages(for: chapterSnapshot, sourceID: manga.sourceID)
-                : await model.refreshPages(for: chapterSnapshot, sourceID: manga.sourceID)
-            await MainActor.run {
-                applyLoadedPages(pages, requestID: requestID, chapterSnapshot: chapterSnapshot, forceRefresh: forceRefresh)
-            }
-        }
-    }
-
-    private func applyLoadedPages(_ pages: [ReaderPage], requestID: UUID, chapterSnapshot: Chapter, forceRefresh: Bool) {
-        guard requestID == activeLoadRequestID else { return }
-        guard chapterSnapshot.id == currentChapter.id else { return }
-
-        if !pages.isEmpty {
-            currentChapter = Chapter(
-                id: currentChapter.id,
-                mangaID: currentChapter.mangaID,
-                title: currentChapter.title,
-                number: currentChapter.number,
-                releaseDate: currentChapter.releaseDate,
-                isDownloaded: currentChapter.isDownloaded,
-                pages: pages
-            )
-        }
-
-        if forceRefresh {
-            retryTick += 1
-        }
-
-        pageLoadState = liveResolvedPages.isEmpty ? .failed : .loaded
-        if pageLoadState != .loading {
-            isChapterTransitioning = false
-        }
-        finalizeResolvedPages()
-    }
-
-    private func pagerDisplayIndex(for actualIndex: Int) -> Int {
-        let boundedActualIndex = boundedPageIndex(for: actualIndex)
-        return pagerItems.firstIndex { item in
-            guard case .render(let renderItem) = item else { return false }
-            return renderItem.logicalPageIndex == boundedActualIndex
-        } ?? 1
-    }
-
-    private func prefetchAroundCurrentPage() {
-        let prefetchCount = model.state.advancedPreferences.imagePrefetchCount
-        guard prefetchCount > 0, let committedSnapshot else {
-            prefetchTask?.cancel()
-            prefetchTask = Task {
-                await ReaderImagePipeline.shared.cancelWindow(for: currentChapter.id)
-            }
-            return
-        }
-        prefetchTask?.cancel()
-        prefetchTask = Task {
-            await ReaderImagePipeline.shared.updateActiveWindow(
-                chapterID: committedSnapshot.chapterID,
-                logicalPages: committedSnapshot.renderData.logicalPages,
-                currentIndex: pageIndex,
-                lookahead: prefetchCount
-            )
-        }
-    }
-
-    private func finalizeResolvedPages() {
-        let snapshot = buildReaderSnapshot()
-        guard !snapshot.renderData.logicalPages.isEmpty else {
-            committedSnapshot = snapshot
-            canPersistPageProgress = false
-            return
-        }
-
-        canPersistPageProgress = false
-        let targetIndex = pendingPageIndexAfterChapterChange
-            ?? (!hasAppliedResumeProgress ? currentChapterResumeProgress?.pageIndex : nil)
-            ?? pageIndex
-        let boundedIndex = targetIndex == Self.chapterEndPageTarget
-            ? max(snapshot.renderData.logicalPages.count - 1, 0)
-            : min(max(targetIndex, 0), max(snapshot.renderData.logicalPages.count - 1, 0))
-        deferredResumePageIndex = targetIndex == Self.chapterEndPageTarget || targetIndex > boundedIndex ? targetIndex : nil
-        hasAppliedResumeProgress = true
-        pendingPageIndexAfterChapterChange = nil
-        resetTransitionState()
-        commitSnapshot(snapshot, preferredPageIndex: targetIndex, animatedSync: false)
-        prefetchAroundCurrentPage()
-        persistProgress()
-        canPersistPageProgress = true
-    }
-
-    private func syncPagerDisplayIndex(animated: Bool) {
-        guard !isVerticalReader else { return }
-        let targetIndex = pagerDisplayIndex(for: pageIndex)
-        guard targetIndex != pagerDisplayIndex else { return }
-        if animated {
-            beginPagerSettling()
-            withAnimation(.interactiveSpring(response: 0.28, dampingFraction: 0.9)) {
-                pagerDisplayIndex = targetIndex
-            }
-        } else {
-            pagerDisplayIndex = targetIndex
-        }
-    }
-
-    private func handlePagerDisplayIndexChange(_ newIndex: Int) {
-        guard pagerItems.indices.contains(newIndex) else { return }
-        switch pagerItems[newIndex] {
-        case .render(let renderItem):
-            if renderItem.logicalPageIndex != pageIndex {
-                pageIndex = renderItem.logicalPageIndex
-            }
-        case .previousChapter, .nextChapter:
-            break
-        }
-    }
-
-    private var canRouteTapPageTurn: Bool {
-        if currentPagerTransitionDirection != nil {
-            return false
-        }
-        return !currentPagerInteractionState.consumesTapNavigation
-    }
-
-    private var allowsInteractivePagerDragging: Bool {
-        if currentPagerTransitionDirection != nil {
-            return true
-        }
-        if currentPagerInteractionState.scale <= 1.01 {
-            return true
-        }
-        return !currentPagerInteractionState.readyDirections.isEmpty
-    }
-
-    private func boundedPageIndex(for index: Int) -> Int {
+    func boundedPageIndex(for index: Int) -> Int {
         min(max(index, 0), max(logicalPages.count - 1, 0))
     }
 
-    private func pageAnchorID(for index: Int) -> String {
-        "\(retryTick)-\(currentChapter.id)-\(index)"
-    }
 
-    private func scrollToCurrentPage(using proxy: ScrollViewProxy, animated: Bool) {
-        guard isVerticalReader, pageLoadState == .loaded, !verticalRenderItems.isEmpty else { return }
-        guard let firstRenderIndex = verticalRenderItems.firstIndex(where: { $0.logicalPageIndex == boundedPageIndex(for: pageIndex) }) else {
-            return
-        }
-        let action = {
-            proxy.scrollTo(pageAnchorID(for: firstRenderIndex), anchor: .top)
-        }
-        if animated {
-            withAnimation(.easeInOut(duration: 0.2), action)
-        } else {
-            action()
-        }
-    }
 
-    private func updateVerticalPageIndex(from frames: [Int: CGRect], viewportHeight: CGFloat) {
-        guard isVerticalReader, pageLoadState == .loaded, !frames.isEmpty else { return }
-        let viewport = CGRect(x: 0, y: 0, width: 1, height: viewportHeight)
-        let visibleFrames = frames.filter { _, frame in
-            !frame.intersection(viewport).isNull
-        }
-        guard !visibleFrames.isEmpty else { return }
-
-        let selectedIndex: Int?
-        if let coveringTop = visibleFrames
-            .filter({ _, frame in frame.minY <= 1 && frame.maxY > 1 })
-            .min(by: { lhs, rhs in lhs.key < rhs.key }) {
-            selectedIndex = coveringTop.key
-        } else {
-            selectedIndex = visibleFrames.min(by: { lhs, rhs in
-                if lhs.value.minY == rhs.value.minY {
-                    return lhs.key < rhs.key
-                }
-                return lhs.value.minY < rhs.value.minY
-            })?.key
-        }
-
-        guard let selectedIndex else { return }
-        guard verticalRenderItems.indices.contains(selectedIndex) else { return }
-        let logicalIndex = boundedPageIndex(for: verticalRenderItems[selectedIndex].logicalPageIndex)
-        if logicalIndex != pageIndex {
-            pageIndex = logicalIndex
-        }
-    }
-
-    private func registerImageSize(_ size: CGSize, for pageID: String) {
-        guard size.width > 0, size.height > 0 else { return }
-        let rounded = CGSize(width: size.width.rounded(.toNearestOrAwayFromZero), height: size.height.rounded(.toNearestOrAwayFromZero))
-        if let existing = pageImageSizes[pageID], existing == rounded {
-            return
-        }
-
-        var updatedSizes = pageImageSizes
-        updatedSizes[pageID] = rounded
-        pageImageSizes = updatedSizes
-        refreshCommittedSnapshot(preferredPageIndex: deferredResumePageIndex, animatedSync: false)
-    }
-
-    private func updateSurfaceInteractionState(_ state: ReaderInteractionState, for itemID: String) {
-        if surfaceInteractionStates[itemID] == state {
-            return
-        }
-        surfaceInteractionStates[itemID] = state
-    }
-
-    private func pagerTransitionIndex(for direction: ReaderTransitionDirection) -> Int? {
-        pagerItems.firstIndex { item in
-            switch (direction, item) {
-            case (.previous, .previousChapter), (.next, .nextChapter):
-                return true
-            default:
-                return false
-            }
-        }
-    }
-
-    private func updateTransitionProgress(for direction: ReaderTransitionDirection, translationMagnitude: CGFloat) {
-        let progress = min(max(translationMagnitude / ReaderTransitionState.activationDistance, 0), 1)
-        transitionState = ReaderTransitionState(direction: direction, progress: progress, isLoading: false)
-    }
-
-    private func transitionProgress(for direction: ReaderTransitionDirection) -> CGFloat {
-        guard transitionState?.direction == direction else { return 0 }
-        return transitionState?.progress ?? 0
-    }
-
-    private func resetTransitionState() {
-        if !isChapterTransitioning {
-            transitionState = nil
-        }
-    }
-
-    private func confirmChapterTransition(_ direction: ReaderTransitionDirection) {
-        guard !isNavigationSuspended else { return }
-        let targetChapter: Chapter?
-        let targetPageIndex: Int
-
-        switch direction {
-        case .previous:
-            targetChapter = previousChapterForCurrentMode()
-            targetPageIndex = Self.chapterEndPageTarget
-        case .next:
-            targetChapter = nextChapterForCurrentMode()
-            targetPageIndex = 0
-        }
-
-        guard let targetChapter else { return }
-        transitionState = ReaderTransitionState(direction: direction, progress: 1, isLoading: true)
-        transitionToChapter(targetChapter, pageIndex: targetPageIndex)
-    }
-
-    private func isForwardPagerTranslation(_ translationWidth: CGFloat) -> Bool {
-        isRTLPager ? translationWidth > 0 : translationWidth < 0
-    }
-
-    private func stepPager(movingLeft: Bool) {
-        beginPagerSettling()
-        let nextIndex = min(max(pagerDisplayIndex + (movingLeft ? 1 : -1), 0), max(pagerItems.count - 1, 0))
-        guard nextIndex != pagerDisplayIndex else { return }
-        pagerDisplayIndex = nextIndex
-        handlePagerDisplayIndexChange(nextIndex)
-        resetTransitionState()
-    }
-
-    private func handlePagerDragChanged(translationWidth: CGFloat) {
-        guard !isNavigationSuspended else { return }
-        if abs(translationWidth) > 0 {
-            readerInteractionPhase = .dragging
-        }
-        guard let direction = currentPagerTransitionDirection else {
-            if transitionDirection != nil {
-                resetTransitionState()
-            }
-            return
-        }
-
-        let translationMagnitude: CGFloat
-        switch direction {
-        case .next:
-            translationMagnitude = isForwardPagerTranslation(translationWidth) ? abs(translationWidth) : 0
-        case .previous:
-            translationMagnitude = isForwardPagerTranslation(translationWidth) ? 0 : abs(translationWidth)
-        }
-
-        if translationMagnitude > 0 {
-            updateTransitionProgress(for: direction, translationMagnitude: translationMagnitude)
-        } else if transitionDirection != nil {
-            resetTransitionState()
-        }
-    }
-
-    private func handlePagerDragEnded(
-        translationWidth: CGFloat,
-        predictedTranslationWidth: CGFloat,
-        containerWidth: CGFloat
-    ) {
-        guard !isNavigationSuspended else { return }
-        let threshold = max(containerWidth * 0.18, 48)
-        let shouldMove = abs(translationWidth) > threshold || abs(predictedTranslationWidth) > containerWidth * 0.32
-        guard shouldMove else {
-            settlePagerInteraction()
-            resetTransitionState()
-            return
-        }
-
-        let movingLeft = translationWidth < 0
-
-        if let transitionDirection = currentPagerTransitionDirection {
-            if transitionProgress(for: transitionDirection) >= 1 {
-                confirmChapterTransition(transitionDirection)
-                return
-            }
-            stepPager(movingLeft: movingLeft)
-            return
-        }
-
-        if currentPagerInteractionState.scale > 1.01 {
-            let dragDirection: ReaderPanEdgeState = movingLeft ? .leftDrag : .rightDrag
-            guard currentPagerInteractionState.readyDirections.contains(dragDirection) else { return }
-        }
-
-        stepPager(movingLeft: movingLeft)
-    }
-
-    private func buildReaderSnapshot(
-        mode: ReaderMode? = nil,
-        pages: [ReaderPage]? = nil,
-        imageSizes: [String: CGSize]? = nil
-    ) -> ReaderContentSnapshot {
-        let resolvedMode = mode ?? model.state.readerPreferences.mode
-        let resolvedPages = pages ?? liveResolvedPages
-        let resolvedImageSizes = imageSizes ?? pageImageSizes
-        return ReaderContentSnapshot(
-            chapterID: currentChapter.id,
-            mode: resolvedMode,
-            pages: resolvedPages,
-            imageSizes: resolvedImageSizes,
-            renderData: ReaderRenderData.build(
-                pages: resolvedPages,
-                mode: resolvedMode,
-                imageSizes: resolvedImageSizes
-            )
-        )
-    }
-
-    private func refreshCommittedSnapshot(preferredPageIndex: Int?, animatedSync: Bool) {
-        let snapshot = buildReaderSnapshot()
-        if shouldDeferSnapshot(snapshot) {
-            deferredSnapshot = snapshot
-            deferredSnapshotPreferredPageIndex = preferredPageIndex
-            return
-        }
-        commitSnapshot(snapshot, preferredPageIndex: preferredPageIndex, animatedSync: animatedSync)
-    }
-
-    private func commitSnapshot(_ snapshot: ReaderContentSnapshot, preferredPageIndex: Int?, animatedSync: Bool) {
-        let previousSnapshot = committedSnapshot
-        let previousPageCount = previousSnapshot?.renderData.logicalPages.count ?? 0
-        let anchor = previousSnapshot?.renderData.anchor(
-            for: min(max(pageIndex, 0), max(previousPageCount - 1, 0))
-        )
-        committedSnapshot = snapshot
-        deferredSnapshot = nil
-        deferredSnapshotPreferredPageIndex = nil
-
-        let resolvedIndex: Int
-        if let preferredPageIndex {
-            if preferredPageIndex == Self.chapterEndPageTarget {
-                resolvedIndex = max(snapshot.renderData.logicalPages.count - 1, 0)
-            } else {
-                resolvedIndex = min(max(preferredPageIndex, 0), max(snapshot.renderData.logicalPages.count - 1, 0))
-            }
-        } else if let anchor, let mappedIndex = snapshot.renderData.index(for: anchor) {
-            resolvedIndex = mappedIndex
-        } else {
-            resolvedIndex = min(max(pageIndex, 0), max(snapshot.renderData.logicalPages.count - 1, 0))
-        }
-
-        pageIndex = resolvedIndex
-        syncPagerDisplayIndex(animated: animatedSync)
-    }
-
-    private func flushDeferredSnapshotIfPossible() {
-        guard readerInteractionPhase == .idle, !isChapterTransitioning, let deferredSnapshot else { return }
-        commitSnapshot(
-            deferredSnapshot,
-            preferredPageIndex: deferredSnapshotPreferredPageIndex,
-            animatedSync: false
-        )
-        prefetchAroundCurrentPage()
-    }
-
-    private func shouldDeferSnapshot(_ snapshot: ReaderContentSnapshot) -> Bool {
-        guard let committedSnapshot else { return false }
-        guard committedSnapshot.chapterID == snapshot.chapterID else { return false }
-        return readerInteractionPhase != .idle || transitionState != nil || isChapterTransitioning
-    }
-
-    private func beginPagerSettling() {
-        readerInteractionPhase = .settling
-        settlePagerInteraction()
-    }
-
-    private func settlePagerInteraction() {
-        readerInteractionPhase = .settling
-        pagerSettleTask?.cancel()
-        pagerSettleTask = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 320_000_000)
-            guard !Task.isCancelled else { return }
-            readerInteractionPhase = .idle
-            flushDeferredSnapshotIfPossible()
-        }
-    }
-}
-
-private struct ReaderChromeButton: View {
-    let systemImage: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: systemImage)
-                .font(.title3)
-                .foregroundStyle(.white)
-                .frame(width: 34, height: 34)
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-private enum ReaderPagerItem: Identifiable {
-    case previousChapter
-    case render(ReaderRenderItem)
-    case nextChapter
-
-    var id: String {
-        switch self {
-        case .previousChapter:
-            return "transition-previous"
-        case .render(let item):
-            return item.id
-        case .nextChapter:
-            return "transition-next"
-        }
-    }
-}
-
-private struct ReaderVisiblePageFramesPreferenceKey: PreferenceKey {
-    static var defaultValue: [Int: CGRect] = [:]
-
-    static func reduce(value: inout [Int: CGRect], nextValue: () -> [Int: CGRect]) {
-        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
-    }
-}
-
-private struct ReaderContentSnapshot {
-    let chapterID: String
-    let mode: ReaderMode
-    let pages: [ReaderPage]
-    let imageSizes: [String: CGSize]
-    let renderData: ReaderRenderData
-}
-
-private enum ReaderInteractionPhase {
-    case idle
-    case dragging
-    case settling
-}
-
-private struct ReaderRenderData {
-    let logicalPages: [ReaderLogicalPage]
-    let renderItems: [ReaderRenderItem]
-
-    func anchor(for logicalIndex: Int) -> ReaderLogicalAnchor? {
-        guard logicalPages.indices.contains(logicalIndex) else { return nil }
-        return logicalPages[logicalIndex].anchor
-    }
-
-    func index(for anchor: ReaderLogicalAnchor) -> Int? {
-        if let exactIndex = logicalPages.firstIndex(where: { $0.anchor == anchor }) {
-            return exactIndex
-        }
-        return logicalPages.firstIndex(where: { $0.anchor.sourcePageID == anchor.sourcePageID })
-    }
-
-    static func build(pages: [ReaderPage], mode: ReaderMode, imageSizes: [String: CGSize]) -> ReaderRenderData {
-        switch mode {
-        case .pagerDefault, .pagerLTR, .pagerRTL:
-            return buildPagedData(pages: pages, mode: mode, imageSizes: imageSizes)
-        case .vertical:
-            let logicalPages = pages.enumerated().map { index, page in
-                ReaderLogicalPage(
-                    id: "\(page.id)|full",
-                    sourcePage: page,
-                    sourcePageIndex: index,
-                    kind: .full
-                )
-            }
-            let renderItems = logicalPages.enumerated().map { index, logicalPage in
-                ReaderRenderItem(
-                    id: logicalPage.id,
-                    logicalPageID: logicalPage.id,
-                    logicalPageIndex: index,
-                    sourcePageIndex: logicalPage.sourcePageIndex,
-                    page: logicalPage.sourcePage,
-                    fragment: .full
-                )
-            }
-            return ReaderRenderData(logicalPages: logicalPages, renderItems: renderItems)
-        case .webtoon:
-            return buildWebtoonData(pages: pages, imageSizes: imageSizes)
-        }
-    }
-
-    private static func buildPagedData(pages: [ReaderPage], mode: ReaderMode, imageSizes: [String: CGSize]) -> ReaderRenderData {
-        let logicalPages = pages.enumerated().flatMap { index, page -> [ReaderLogicalPage] in
-            guard let size = imageSizes[page.id], size.shouldSplitForSpread else {
-                return [
-                    ReaderLogicalPage(
-                        id: "\(page.id)|full",
-                        sourcePage: page,
-                        sourcePageIndex: index,
-                        kind: .full
-                    )
-                ]
-            }
-            return [
-                ReaderLogicalPage(
-                    id: "\(page.id)|spread-left",
-                    sourcePage: page,
-                    sourcePageIndex: index,
-                    kind: .spreadHalf(.left)
-                ),
-                ReaderLogicalPage(
-                    id: "\(page.id)|spread-right",
-                    sourcePage: page,
-                    sourcePageIndex: index,
-                    kind: .spreadHalf(.right)
-                )
-            ]
-        }
-
-        let baseRenderItems = logicalPages.enumerated().map { index, logicalPage in
-            ReaderRenderItem(
-                id: logicalPage.id,
-                logicalPageID: logicalPage.id,
-                logicalPageIndex: index,
-                sourcePageIndex: logicalPage.sourcePageIndex,
-                page: logicalPage.sourcePage,
-                fragment: logicalPage.renderFragment
-            )
-        }
-        let isRTLPager = mode == .pagerDefault || mode == .pagerRTL
-        let renderItems = isRTLPager ? Array(baseRenderItems.reversed()) : baseRenderItems
-        return ReaderRenderData(logicalPages: logicalPages, renderItems: renderItems)
-    }
-
-    private static func buildWebtoonData(pages: [ReaderPage], imageSizes: [String: CGSize]) -> ReaderRenderData {
-        let logicalPages = pages.enumerated().map { index, page in
-            ReaderLogicalPage(
-                id: "\(page.id)|full",
-                sourcePage: page,
-                sourcePageIndex: index,
-                kind: .full
-            )
-        }
-
-        let renderItems = logicalPages.enumerated().flatMap { logicalIndex, logicalPage -> [ReaderRenderItem] in
-            let slices = imageSizes[logicalPage.sourcePage.id]?.webtoonSliceUnitRects ?? [CGRect(x: 0, y: 0, width: 1, height: 1)]
-            return slices.enumerated().map { sliceIndex, rect in
-                ReaderRenderItem(
-                    id: "\(logicalPage.id)|slice-\(sliceIndex)",
-                    logicalPageID: logicalPage.id,
-                    logicalPageIndex: logicalIndex,
-                    sourcePageIndex: logicalPage.sourcePageIndex,
-                    page: logicalPage.sourcePage,
-                    fragment: slices.count == 1 ? .full : .webtoonSlice(index: sliceIndex, total: slices.count, unitRect: rect)
-                )
-            }
-        }
-
-        return ReaderRenderData(logicalPages: logicalPages, renderItems: renderItems)
-    }
-}
-
-private struct ReaderLogicalPage: Identifiable {
-    let id: String
-    let sourcePage: ReaderPage
-    let sourcePageIndex: Int
-    let kind: ReaderLogicalPageKind
-
-    var anchor: ReaderLogicalAnchor {
-        ReaderLogicalAnchor(sourcePageID: sourcePage.id, kind: kind.anchorKey)
-    }
-
-    var renderFragment: ReaderRenderFragment {
-        switch kind {
-        case .full:
-            return .full
-        case .spreadHalf(let side):
-            return .spreadHalf(side)
-        }
-    }
-}
-
-private enum ReaderLogicalPageKind {
-    case full
-    case spreadHalf(ReaderSpreadHalf)
-
-    var anchorKey: String {
-        switch self {
-        case .full:
-            return "full"
-        case .spreadHalf(let side):
-            return "spread-\(side.rawValue)"
-        }
-    }
-}
-
-private struct ReaderLogicalAnchor: Equatable {
-    let sourcePageID: String
-    let kind: String
-}
-
-private struct ReaderRenderItem: Identifiable {
-    let id: String
-    let logicalPageID: String
-    let logicalPageIndex: Int
-    let sourcePageIndex: Int
-    let page: ReaderPage
-    let fragment: ReaderRenderFragment
-}
-
-private enum ReaderRenderFragment {
-    case full
-    case spreadHalf(ReaderSpreadHalf)
-    case webtoonSlice(index: Int, total: Int, unitRect: CGRect)
-}
-
-private enum ReaderSpreadHalf: String {
-    case left
-    case right
-
-    var unitRect: CGRect {
-        switch self {
-        case .left:
-            return CGRect(x: 0, y: 0, width: 0.5, height: 1)
-        case .right:
-            return CGRect(x: 0.5, y: 0, width: 0.5, height: 1)
-        }
-    }
-}
-
-private struct ReaderPagedContainer<Content: View>: View {
-    @Binding var currentIndex: Int
-    let itemCount: Int
-    let pageWidth: CGFloat
-    let allowsInteractivePaging: Bool
-    let onDragChanged: (CGFloat) -> Void
-    let onDragEnded: (CGFloat, CGFloat, CGFloat) -> Void
-    @ViewBuilder let content: Content
-
-    @GestureState private var dragTranslation: CGFloat = 0
-
-    var body: some View {
-        GeometryReader { geometry in
-            content
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-                .offset(x: -CGFloat(currentIndex) * pageWidth + (allowsInteractivePaging ? dragTranslation : 0))
-                .animation(.interactiveSpring(response: 0.28, dampingFraction: 0.9), value: currentIndex)
-                .contentShape(Rectangle())
-                .clipped()
-                .gesture(
-                    DragGesture(minimumDistance: 12, coordinateSpace: .local)
-                        .updating($dragTranslation) { value, state, _ in
-                            guard abs(value.translation.width) > abs(value.translation.height) else { return }
-                            state = allowsInteractivePaging ? value.translation.width : 0
-                        }
-                        .onChanged { value in
-                            guard abs(value.translation.width) > abs(value.translation.height) else { return }
-                            onDragChanged(value.translation.width)
-                        }
-                        .onEnded { value in
-                            onDragChanged(0)
-                            onDragEnded(value.translation.width, value.predictedEndTranslation.width, pageWidth)
-                        }
-                )
-        }
-    }
-}
-
-private struct ReaderTransitionPage: View {
-    let title: String
-    let chapterTitle: String?
-    let systemImage: String
-    let isEnabled: Bool
-    let progress: CGFloat
-    let isLoading: Bool
-    let confirmLabel: String
-    let action: () -> Void
-
-    var body: some View {
-        ZStack {
-            Color.black
-            VStack(spacing: 18) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 34, weight: .semibold))
-                    .foregroundStyle(.white.opacity(isEnabled ? 0.9 : 0.35))
-                Text(title)
-                    .font(.headline)
-                    .foregroundStyle(.white.opacity(isEnabled ? 1 : 0.45))
-                Text(chapterTitle ?? "No chapter available")
-                    .font(.subheadline)
-                    .foregroundStyle(.white.opacity(isEnabled ? 0.72 : 0.3))
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 28)
-
-                ProgressView(value: progress, total: 1)
-                    .tint(.white)
-                    .opacity(isEnabled ? 1 : 0.25)
-                    .frame(maxWidth: 220)
-
-                Button(isLoading ? "Loading…" : confirmLabel, action: action)
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!isEnabled || isLoading)
-                    .tint(.white.opacity(isEnabled ? 0.18 : 0.08))
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(.horizontal, 24)
-        }
-    }
-}
-
-private struct ReaderBottomPill: View {
-    let systemImage: String
-    let title: String
-    var isProminent: Bool = false
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 4) {
-                Image(systemName: systemImage)
-                    .font(.headline)
-                Text(title)
-                    .font(.caption2)
-                    .lineLimit(1)
-            }
-            .foregroundStyle(.white)
-            .frame(maxWidth: .infinity)
-            .frame(height: 52)
-            .background(backgroundStyle, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        }
-        .buttonStyle(.plain)
-    }
-
-    private var backgroundStyle: some ShapeStyle {
-        if isProminent {
-            return AnyShapeStyle(Color.white.opacity(0.18))
-        }
-        return AnyShapeStyle(Color.white.opacity(0.08))
-    }
-}
-
-private struct ReaderPageSurface: View {
-    @EnvironmentObject private var model: AppModel
-    let item: ReaderRenderItem
-    let filter: ReaderColorFilter
-    let fillViewport: Bool
-    let allowsImagePan: Bool
-    let allowsHighDetailAtRest: Bool
-    let onImageMetadataResolved: (CGSize) -> Void
-    let onInteractionStateChanged: (ReaderInteractionState) -> Void
-    @State private var resolvedSourcePixelSize: CGSize = .zero
-    @State private var loadFailureMessage: String?
-    @State private var retryToken = 0
-
-    var body: some View {
-        ZStack {
-            Color.black
-
-            content
-        }
-        .frame(maxWidth: .infinity, maxHeight: fillViewport ? .infinity : nil)
-        .onAppear {
-            onInteractionStateChanged(.default)
-        }
-        .onDisappear {
-            onInteractionStateChanged(.default)
-        }
-    }
-
-    @ViewBuilder
-    private var content: some View {
-        if item.page.assetKind == .image {
-            imageContent
-        } else {
-            ScrollView {
-                Text(item.page.body)
-                    .font(.body)
-                    .foregroundStyle(.white.opacity(0.88))
-                    .padding(24)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .grayscale(filter.enabled ? filter.grayscale : 0)
-            .brightness(filter.enabled ? -filter.dimming * 0.4 : 0)
-        }
-    }
-
-    @ViewBuilder
-    private var imageContent: some View {
-        if let imageSource {
-            ZStack {
-                ReaderTiledPageSurface(
-                    source: imageSource,
-                    variantKey: item.id,
-                    normalizedCropRect: normalizedCropRect,
-                    colorTransform: ReaderColorTransform(filter: filter),
-                    allowsZoom: allowsImagePan,
-                    allowsDetailTiles: allowsImagePan || allowsHighDetailAtRest,
-                    retryToken: retryToken,
-                    onSourceSizeResolved: { size in
-                        resolvedSourcePixelSize = size
-                        loadFailureMessage = nil
-                        onImageMetadataResolved(size)
-                    },
-                    onViewportStateChanged: { viewportState in
-                        var readyDirections: Set<ReaderPanEdgeState> = []
-                        if viewportState.isLeftEdgeReadyForPageTurn {
-                            readyDirections.insert(.rightDrag)
-                        }
-                        if viewportState.isRightEdgeReadyForPageTurn {
-                            readyDirections.insert(.leftDrag)
-                        }
-                        onInteractionStateChanged(
-                            ReaderInteractionState(
-                                scale: viewportState.scale,
-                                offset: CGSize(width: viewportState.contentOffset.x, height: viewportState.contentOffset.y),
-                                edgeDirection: nil,
-                                readyDirections: readyDirections
-                            )
-                        )
-                    },
-                    onFailureChanged: { message in
-                        loadFailureMessage = message
-                        if message != nil {
-                            onInteractionStateChanged(.default)
-                        }
-                    }
-                )
-                .frame(maxWidth: .infinity, maxHeight: fillViewport ? .infinity : nil)
-                .aspectRatio(fillViewport ? nil : (resolvedDisplayAspectRatio ?? 0.72), contentMode: .fit)
-
-                if let failureMessage = loadFailureMessage {
-                    VStack(spacing: 14) {
-                        Image(systemName: "exclamationmark.triangle")
-                            .font(.title2)
-                            .foregroundStyle(.white.opacity(0.82))
-                        Text("Image Failed")
-                            .font(.headline)
-                            .foregroundStyle(.white)
-                        Text(failureMessage)
-                            .font(.subheadline)
-                            .foregroundStyle(.white.opacity(0.72))
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 24)
-                        Button("Retry") {
-                            retryToken += 1
-                            loadFailureMessage = nil
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.white.opacity(0.18))
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding(.horizontal, 24)
-                }
-            }
-        } else {
-            ReaderInlineFailureView(
-                title: "Image Failed",
-                message: "The page image source could not be resolved."
-            )
-        }
-    }
-
-    private var imageSource: ReaderImageAssetSource? {
-        let localFileURL = model.fileURL(for: item.page)
-        let remoteURL = item.page.remoteURL.flatMap(URL.init(string:))
-        guard localFileURL != nil || remoteURL != nil else { return nil }
-        let sourceIdentity = localFileURL?.path ?? remoteURL?.absoluteString ?? item.page.id
-        return ReaderImageAssetSource(
-            cacheKey: "\(item.page.id)|\(sourceIdentity)",
-            remoteURL: remoteURL,
-            localFileURL: localFileURL
-        )
-    }
-
-    private var normalizedCropRect: CGRect {
-        switch item.fragment {
-        case .full:
-            return CGRect(x: 0, y: 0, width: 1, height: 1)
-        case .spreadHalf(let side):
-            return side.unitRect
-        case .webtoonSlice(_, _, let unitRect):
-            return unitRect
-        }
-    }
-
-    private var resolvedDisplayAspectRatio: CGFloat? {
-        guard resolvedSourcePixelSize.width > 0, resolvedSourcePixelSize.height > 0 else { return nil }
-        let displayWidth = resolvedSourcePixelSize.width * normalizedCropRect.width
-        let displayHeight = resolvedSourcePixelSize.height * normalizedCropRect.height
-        guard displayWidth > 0, displayHeight > 0 else { return nil }
-        return displayWidth / displayHeight
-    }
-}
-
-private struct ReaderRemoteImageView<Content: View>: View {
-    @EnvironmentObject private var model: AppModel
-    let url: URL
-    let page: ReaderPage
-    let aggressiveRetry: Bool
-    let onImageMetadataResolved: (CGSize) -> Void
-    @ViewBuilder let content: (UIImage) -> Content
-
-    @State private var phase: RemoteImagePhase = .loading
-    @State private var retryToken = 0
-
-    var body: some View {
-        Group {
-            switch phase {
-            case .loading:
-                ProgressView()
-                    .tint(.white)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .allowsHitTesting(false)
-            case .success(let image):
-                content(image)
-            case .failure(let message):
-                VStack(spacing: 14) {
-                    VStack(spacing: 8) {
-                        Image(systemName: "exclamationmark.triangle")
-                            .font(.title2)
-                            .foregroundStyle(.white.opacity(0.85))
-                        Text("Image Failed")
-                            .font(.headline)
-                            .foregroundStyle(.white)
-                        Text(message)
-                            .font(.subheadline)
-                            .foregroundStyle(.white.opacity(0.72))
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 24)
-                    }
-                    .allowsHitTesting(false)
-
-                    Button("Retry") {
-                        retryToken += 1
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.white.opacity(0.18))
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-        }
-        .task(id: retryToken) {
-            await loadImage()
-        }
-    }
-
-    @MainActor
-    private func loadImage() async {
-        phase = .loading
-        do {
-            let image = try await ReaderImagePipeline.shared.image(for: url, forceRefresh: retryToken > 0)
-            onImageMetadataResolved(image.size)
-            phase = .success(image)
-        } catch {
-            model.appendDiagnostic(
-                kind: .reader,
-                title: "Reader Remote Image Failed",
-                message: error.localizedDescription,
-                metadata: [
-                    "pageID": page.id,
-                    "url": url.absoluteString
-                ]
-            )
-            if aggressiveRetry, retryToken == 0 {
-                do {
-                    let image = try await ReaderImagePipeline.shared.image(for: url, forceRefresh: true)
-                    onImageMetadataResolved(image.size)
-                    phase = .success(image)
-                    return
-                } catch { }
-            }
-            phase = .failure("Tap retry to request the page again.")
-        }
-    }
-}
-
-private enum RemoteImagePhase {
-    case loading
-    case success(UIImage)
-    case failure(String)
-}
-
-actor ReaderImagePipeline {
-    static let shared = ReaderImagePipeline()
-
-    private let cache: AppCacheManaging = AppCacheController.shared
-    private var inFlight: [URL: Task<UIImage, Error>] = [:]
-    private var prefetchTasksByURL: [URL: Task<Void, Never>] = [:]
-    private var activeWindowChapterID: String?
-    private var activeWindowURLs: Set<URL> = []
-    private let ciContext = CIContext(options: nil)
-
-    func previewImage(
-        for source: ReaderImageAssetSource,
-        variantKey _: String,
-        normalizedCropRect: CGRect,
-        maxPixelSize: CGFloat,
-        colorTransform: ReaderColorTransform,
-        forceRefresh: Bool
-    ) async throws -> ReaderPreviewImageResult {
-        let dimensions = try await cache.readerImageDimensions(
-            for: source.cacheKey,
-            policy: forceRefresh ? .reloadIgnoringCache : .returnCacheElseLoad
-        ) {
-            try await self.loadData(for: source, forceRefresh: forceRefresh)
-        }
-        let previewImage = try await cache.readerPreviewImage(
-            for: source.cacheKey,
-            policy: forceRefresh ? .reloadIgnoringCache : .returnCacheElseLoad,
-            normalizedCropRect: normalizedCropRect,
-            maxPixelSize: maxPixelSize
-        ) {
-            try await self.loadData(for: source, forceRefresh: forceRefresh)
-        }
-        let transformed = applyColorTransform(colorTransform, to: previewImage) ?? previewImage
-        return ReaderPreviewImageResult(image: transformed, sourcePixelSize: dimensions)
-    }
-
-    func tileImage(
-        for request: ReaderTileRequest,
-        variantKey _: String,
-        forceRefresh: Bool
-    ) async throws -> UIImage {
-        let tileImage = try await cache.readerTileImage(
-            for: request.source.cacheKey,
-            policy: forceRefresh ? .reloadIgnoringCache : .returnCacheElseLoad,
-            normalizedCropRect: request.normalizedCropRect,
-            targetPixelSize: request.targetPixelSize
-        ) {
-            try await self.loadData(for: request.source, forceRefresh: forceRefresh)
-        }
-        return applyColorTransform(request.colorTransform, to: tileImage) ?? tileImage
-    }
-
-    private func loadData(for source: ReaderImageAssetSource, forceRefresh: Bool) async throws -> Data {
-        if let localFileURL = source.localFileURL {
-            return try await Task.detached(priority: .utility) {
-                try Data(contentsOf: localFileURL, options: [.mappedIfSafe])
-            }.value
-        }
-
-        guard let remoteURL = source.remoteURL else {
-            throw URLError(.fileDoesNotExist)
-        }
-
-        var request = URLRequest(url: remoteURL)
-        request.cachePolicy = forceRefresh ? .reloadIgnoringLocalCacheData : .useProtocolCachePolicy
-        request.timeoutInterval = 20
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else {
-            throw URLError(.badServerResponse)
-        }
-        return data
-    }
-
-    private func applyColorTransform(_ transform: ReaderColorTransform, to image: UIImage) -> UIImage? {
-        guard transform.enabled, let cgImage = image.cgImage else { return image }
-        let input = CIImage(cgImage: cgImage)
-
-        let controls = CIFilter(name: "CIColorControls")
-        controls?.setValue(input, forKey: kCIInputImageKey)
-        controls?.setValue(1 - transform.grayscale, forKey: kCIInputSaturationKey)
-        controls?.setValue(-transform.dimming * 0.4, forKey: kCIInputBrightnessKey)
-
-        guard
-            let output = controls?.outputImage,
-            let rendered = ciContext.createCGImage(output, from: output.extent)
-        else {
-            return image
-        }
-        return UIImage(cgImage: rendered)
-    }
-
-    func image(for url: URL, forceRefresh: Bool) async throws -> UIImage {
-        if !forceRefresh, let task = inFlight[url] {
-            return try await task.value
-        }
-
-        let task = Task<UIImage, Error> {
-            var request = URLRequest(url: url)
-            request.cachePolicy = forceRefresh ? .reloadIgnoringLocalCacheData : .useProtocolCachePolicy
-            request.timeoutInterval = 20
-            return try await cache.image(
-                for: url,
-                key: "reader-image|\(url.absoluteString)",
-                policy: forceRefresh ? .reloadIgnoringCache : .returnCacheElseLoad,
-                intent: .readerFullQuality
-            ) {
-                let (data, response) = try await URLSession.shared.data(for: request)
-                guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else {
-                    throw URLError(.badServerResponse)
-                }
-                return data
-            }
-        }
-
-        inFlight[url] = task
-
-        do {
-            let image = try await task.value
-            inFlight[url] = nil
-            return image
-        } catch {
-            inFlight[url] = nil
-            throw error
-        }
-    }
-
-    fileprivate func updateActiveWindow(
-        chapterID: String,
-        logicalPages: [ReaderLogicalPage],
-        currentIndex: Int,
-        lookahead: Int
-    ) async {
-        let boundedLookahead = max(lookahead, 0)
-        let targetURLs = Set(logicalPages.enumerated().compactMap { index, logicalPage -> URL? in
-            guard abs(index - currentIndex) <= boundedLookahead else { return nil }
-            guard let remoteURL = logicalPage.sourcePage.remoteURL else { return nil }
-            return URL(string: remoteURL)
-        })
-
-        if activeWindowChapterID != chapterID {
-            cancelPrefetchTasks()
-            activeWindowURLs.removeAll()
-            activeWindowChapterID = chapterID
-        }
-
-        let staleURLs = activeWindowURLs.subtracting(targetURLs)
-        for (url, task) in prefetchTasksByURL where !targetURLs.contains(url) {
-            task.cancel()
-            prefetchTasksByURL[url] = nil
-        }
-        for url in staleURLs {
-            inFlight[url]?.cancel()
-            inFlight[url] = nil
-        }
-
-        for url in targetURLs {
-            if Task.isCancelled { return }
-            if inFlight[url] != nil || prefetchTasksByURL[url] != nil { continue }
-            let task = Task<Void, Never> {
-                defer {
-                    Task { await self.finishPrefetch(for: url) }
-                }
-                guard !Task.isCancelled else { return }
-                _ = try? await image(for: url, forceRefresh: false)
-            }
-            prefetchTasksByURL[url] = task
-        }
-
-        if !staleURLs.isEmpty {
-            await cache.trimMemory(fraction: 0.15)
-        }
-        activeWindowURLs = targetURLs
-    }
-
-    func clear() async {
-        cancelPrefetchTasks()
-        for (_, task) in inFlight {
-            task.cancel()
-        }
-        inFlight.removeAll()
-        activeWindowChapterID = nil
-        activeWindowURLs.removeAll()
-        await cache.clear(.image)
-    }
-
-    func cancelWindow(for chapterID: String? = nil) {
-        guard chapterID == nil || chapterID == activeWindowChapterID else { return }
-        cancelPrefetchTasks()
-        activeWindowChapterID = nil
-        activeWindowURLs.removeAll()
-    }
-
-    private func cancelPrefetchTasks() {
-        for task in prefetchTasksByURL.values {
-            task.cancel()
-        }
-        prefetchTasksByURL.removeAll()
-    }
-
-    private func finishPrefetch(for url: URL) {
-        prefetchTasksByURL[url] = nil
-    }
-}
-
-private struct CachedLocalImageView<Content: View>: View {
-    @EnvironmentObject private var model: AppModel
-    let page: ReaderPage
-    let onImageMetadataResolved: (CGSize) -> Void
-    @ViewBuilder let content: (UIImage) -> Content
-
-    @State private var phase: LocalImagePhase = .loading
-
-    var body: some View {
-        Group {
-            switch phase {
-            case .loading:
-                Rectangle()
-                    .fill(.clear)
-                    .task(id: page.id) {
-                        await loadFromDisk()
-                    }
-            case .success(let uiImage):
-                content(uiImage)
-            case .failure(let message):
-                ReaderInlineFailureView(title: "Downloaded Page Failed", message: message)
-            }
-        }
-    }
-
-    @MainActor
-    private func loadFromDisk() async {
-        guard let fileURL = model.fileURL(for: page) else {
-            phase = .failure("The downloaded file could not be found.")
-            model.appendDiagnostic(
-                kind: .reader,
-                title: "Reader Local Asset Missing",
-                message: "A downloaded page file could not be resolved.",
-                metadata: [
-                    "pageID": page.id,
-                    "assetPath": page.assetPath ?? "<nil>",
-                    "remoteURL": page.remoteURL ?? "<nil>"
-                ]
-            )
-            return
-        }
-
-        guard FileManager.default.fileExists(atPath: fileURL.path) else {
-            phase = .failure("The downloaded file is missing from storage.")
-            model.appendDiagnostic(
-                kind: .reader,
-                title: "Reader Local Asset Missing",
-                message: "A downloaded page path resolved, but the file is absent on disk.",
-                metadata: [
-                    "pageID": page.id,
-                    "assetPath": fileURL.path
-                ]
-            )
-            return
-        }
-
-        guard
-            let data = try? Data(contentsOf: fileURL),
-            let image = UIImage(data: data)
-        else {
-            phase = .failure("The downloaded file could not be decoded.")
-            model.appendDiagnostic(
-                kind: .reader,
-                title: "Reader Local Decode Failed",
-                message: "A downloaded page file exists but could not be decoded into an image.",
-                metadata: [
-                    "pageID": page.id,
-                    "assetPath": fileURL.path
-                ]
-            )
-            return
-        }
-
-        onImageMetadataResolved(image.size)
-        phase = .success(image)
-    }
-}
-
-private enum LocalImagePhase {
-    case loading
-    case success(UIImage)
-    case failure(String)
-}
-
-private struct ReaderInlineFailureView: View {
-    let title: String
-    let message: String
-
-    var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "exclamationmark.triangle")
-                .font(.title2)
-                .foregroundStyle(.white.opacity(0.82))
-            Text(title)
-                .font(.headline)
-                .foregroundStyle(.white)
-            Text(message)
-                .font(.subheadline)
-                .foregroundStyle(.white.opacity(0.72))
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 24)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
-
-private enum ReaderTapZone {
-    case topLeading
-    case topCenter
-    case topTrailing
-    case middleLeading
-    case center
-    case middleTrailing
-    case bottomLeading
-    case bottomCenter
-    case bottomTrailing
-
-    static func resolve(point: CGPoint, in size: CGSize) -> ReaderTapZone {
-        let column = min(max(Int((point.x / max(size.width, 1)) * 3), 0), 2)
-        let row = min(max(Int((point.y / max(size.height, 1)) * 3), 0), 2)
-        switch (row, column) {
-        case (0, 0): return .topLeading
-        case (0, 1): return .topCenter
-        case (0, 2): return .topTrailing
-        case (1, 0): return .middleLeading
-        case (1, 1): return .center
-        case (1, 2): return .middleTrailing
-        case (2, 0): return .bottomLeading
-        case (2, 1): return .bottomCenter
-        default: return .bottomTrailing
-        }
-    }
-
-    func intent(isRTLPager: Bool) -> ReaderTapIntent {
-        switch self {
-        case .center:
-            return .toggleChrome
-        case .topCenter, .bottomCenter:
-            return .none
-        case .topLeading, .middleLeading, .bottomLeading:
-            return isRTLPager ? .forward : .backward
-        case .topTrailing, .middleTrailing, .bottomTrailing:
-            return isRTLPager ? .backward : .forward
-        }
-    }
-}
-
-private enum ReaderTapIntent {
-    case forward
-    case backward
-    case toggleChrome
-    case none
-}
-
-private enum ReaderTransitionDirection {
-    case previous
-    case next
-}
-
-private struct ReaderTransitionState: Equatable {
-    static let activationDistance: CGFloat = 120
-
-    let direction: ReaderTransitionDirection
-    let progress: CGFloat
-    let isLoading: Bool
-}
-
-private enum ReaderPanEdgeState: Hashable {
-    case leftDrag
-    case rightDrag
-}
-
-private struct ReaderInteractionState: Equatable {
-    static let resistanceThreshold: CGFloat = 72
-    static let `default` = ReaderInteractionState(scale: 1, offset: .zero, edgeDirection: nil, readyDirections: [])
-
-    let scale: CGFloat
-    let offset: CGSize
-    let edgeDirection: ReaderPanEdgeState?
-    let readyDirections: Set<ReaderPanEdgeState>
-
-    var consumesTapNavigation: Bool {
-        scale > 1.01
-    }
-}
-
-private struct ReaderPanResolution {
-    let clampedOffset: CGSize
-    let edgeDirection: ReaderPanEdgeState?
-    let overscrollDistance: CGFloat
-}
-
-private extension CGSize {
-    static let readerSpreadSplitThreshold: CGFloat = 1.32
-    static let readerWebtoonSliceHeight: CGFloat = 4_096
-
-    var shouldSplitForSpread: Bool {
-        width > 0 && height > 0 && (width / height) >= Self.readerSpreadSplitThreshold
-    }
-
-    var webtoonSliceUnitRects: [CGRect] {
-        guard width > 0, height > 0, height > Self.readerWebtoonSliceHeight else {
-            return [CGRect(x: 0, y: 0, width: 1, height: 1)]
-        }
-
-        let sliceCount = Int(ceil(height / Self.readerWebtoonSliceHeight))
-        guard sliceCount > 1 else {
-            return [CGRect(x: 0, y: 0, width: 1, height: 1)]
-        }
-
-        let normalizedSliceHeight = 1 / CGFloat(sliceCount)
-        return (0..<sliceCount).map { index in
-            let originY = CGFloat(index) * normalizedSliceHeight
-            let height = index == sliceCount - 1 ? 1 - originY : normalizedSliceHeight
-            return CGRect(x: 0, y: originY, width: 1, height: height)
-        }
-    }
-
-    func aspectFit(in boundingSize: CGSize) -> CGSize {
-        guard width > 0, height > 0, boundingSize.width > 0, boundingSize.height > 0 else {
-            return .zero
-        }
-        let scale = min(boundingSize.width / width, boundingSize.height / height)
-        return CGSize(width: width * scale, height: height * scale)
-    }
-}
-
-private extension UIImage {
-    func cropped(unitRect: CGRect) -> UIImage? {
-        guard let cgImage else { return nil }
-        let pixelRect = CGRect(
-            x: unitRect.origin.x * CGFloat(cgImage.width),
-            y: unitRect.origin.y * CGFloat(cgImage.height),
-            width: unitRect.size.width * CGFloat(cgImage.width),
-            height: unitRect.size.height * CGFloat(cgImage.height)
-        ).integral
-
-        guard pixelRect.width > 0, pixelRect.height > 0 else { return nil }
-        guard let cropped = cgImage.cropping(to: pixelRect) else { return nil }
-        return UIImage(cgImage: cropped, scale: scale, orientation: imageOrientation)
-    }
-}
-
-private enum ReaderContentLoadState: Equatable {
-    case idle
-    case loading
-    case loaded
-    case failed
-}
-
-private struct ReaderEmptyState: View {
-    let message: String
-    let retry: () -> Void
-
-    var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "photo.on.rectangle.angled")
-                .font(.system(size: 34))
-                .foregroundStyle(.white.opacity(0.7))
-            Text("Chapter could not be displayed")
-                .font(.headline)
-                .foregroundStyle(.white)
-            Text(message)
-                .font(.subheadline)
-                .foregroundStyle(.white.opacity(0.72))
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 28)
-            Button("Retry", action: retry)
-                .buttonStyle(.borderedProminent)
-                .tint(.white.opacity(0.18))
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black)
-        .ignoresSafeArea()
-    }
 }

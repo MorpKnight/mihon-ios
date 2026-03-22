@@ -32,7 +32,7 @@ struct ReaderSettingsView: View {
                     }
                 }
 
-                Section("Reading Mode") {
+                Section {
                     Picker("Mode", selection: Binding(
                         get: { model.state.readerPreferences.mode },
                         set: model.setReaderMode
@@ -41,6 +41,19 @@ struct ReaderSettingsView: View {
                             Text(mode.title).tag(mode)
                         }
                     }
+
+                    Picker("Wide page handling", selection: Binding(
+                        get: { model.state.readerPreferences.spreadBehavior },
+                        set: model.setReaderSpreadBehavior
+                    )) {
+                        ForEach(ReaderSpreadBehavior.allCases) { behavior in
+                            Text(behavior.title).tag(behavior)
+                        }
+                    }
+                } header: {
+                    Text("Reading Mode")
+                } footer: {
+                    Text("Wide page handling affects paged modes only.")
                 }
 
                 Section("Color Filter") {

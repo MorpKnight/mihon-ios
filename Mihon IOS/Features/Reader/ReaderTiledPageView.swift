@@ -65,21 +65,31 @@ struct ReaderTileRequest: Hashable {
     }
 }
 
+enum ReaderPageSizingMode: Equatable {
+    case aspectFit
+    case fitWidth
+}
+
 struct ReaderTiledPageSurface: UIViewRepresentable {
+    let imagePipeline: ReaderImagePipelining
     let source: ReaderImageAssetSource
     let variantKey: String
     let normalizedCropRect: CGRect
     let colorTransform: ReaderColorTransform
     let allowsZoom: Bool
     let allowsDetailTiles: Bool
+    let sizingMode: ReaderPageSizingMode
     let retryToken: Int
     let onSourceSizeResolved: (CGSize) -> Void
+    let onPreviewLuminanceResolved: (CGFloat) -> Void
     let onViewportStateChanged: (ReaderPageViewportState) -> Void
     let onFailureChanged: (String?) -> Void
 
     func makeUIView(context: Context) -> ReaderTiledPageHostView {
         let view = ReaderTiledPageHostView()
+        view.imagePipeline = imagePipeline
         view.onSourceSizeResolved = onSourceSizeResolved
+        view.onPreviewLuminanceResolved = onPreviewLuminanceResolved
         view.onViewportStateChanged = onViewportStateChanged
         view.onFailureChanged = onFailureChanged
         view.apply(
@@ -90,6 +100,7 @@ struct ReaderTiledPageSurface: UIViewRepresentable {
                 colorTransform: colorTransform,
                 allowsZoom: allowsZoom,
                 allowsDetailTiles: allowsDetailTiles,
+                sizingMode: sizingMode,
                 retryToken: retryToken
             )
         )
@@ -97,7 +108,9 @@ struct ReaderTiledPageSurface: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: ReaderTiledPageHostView, context: Context) {
+        uiView.imagePipeline = imagePipeline
         uiView.onSourceSizeResolved = onSourceSizeResolved
+        uiView.onPreviewLuminanceResolved = onPreviewLuminanceResolved
         uiView.onViewportStateChanged = onViewportStateChanged
         uiView.onFailureChanged = onFailureChanged
         uiView.apply(
@@ -108,6 +121,7 @@ struct ReaderTiledPageSurface: UIViewRepresentable {
                 colorTransform: colorTransform,
                 allowsZoom: allowsZoom,
                 allowsDetailTiles: allowsDetailTiles,
+                sizingMode: sizingMode,
                 retryToken: retryToken
             )
         )
@@ -123,18 +137,27 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
         let colorTransform: ReaderColorTransform
         let allowsZoom: Bool
         let allowsDetailTiles: Bool
+        let sizingMode: ReaderPageSizingMode
         let retryToken: Int
     }
 
     var onSourceSizeResolved: ((CGSize) -> Void)?
+    var onPreviewLuminanceResolved: ((CGFloat) -> Void)?
     var onViewportStateChanged: ((ReaderPageViewportState) -> Void)?
     var onFailureChanged: ((String?) -> Void)?
+    var imagePipeline: ReaderImagePipelining = ReaderImagePipeline.shared
 
     private let scrollView = UIScrollView()
     private let contentView = UIView()
     private let previewImageView = UIImageView()
     private let tileOverlayView = UIView()
     private let loadingIndicator = UIActivityIndicatorView(style: .large)
+    private lazy var doubleTapGestureRecognizer: UITapGestureRecognizer = {
+        let recognizer = UITapGestureRecognizer(target: self, action: #selector(handleDoubleTap(_:)))
+        recognizer.numberOfTapsRequired = 2
+        recognizer.cancelsTouchesInView = true
+        return recognizer
+    }()
 
     private var configuration: Configuration?
     private var previewTask: Task<Void, Never>?
@@ -168,6 +191,7 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
             || self.configuration?.colorTransform != configuration.colorTransform
             || self.configuration?.allowsZoom != configuration.allowsZoom
             || self.configuration?.allowsDetailTiles != configuration.allowsDetailTiles
+            || self.configuration?.sizingMode != configuration.sizingMode
             || self.configuration?.retryToken != configuration.retryToken
 
         self.configuration = configuration
@@ -228,6 +252,7 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
         scrollView.showsVerticalScrollIndicator = false
         scrollView.bouncesZoom = true
         scrollView.bounces = true
+        scrollView.addGestureRecognizer(doubleTapGestureRecognizer)
         addSubview(scrollView)
 
         contentView.backgroundColor = .clear
@@ -276,7 +301,7 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
         previewTask = Task { [weak self] in
             guard let self else { return }
             do {
-                let preview = try await ReaderImagePipeline.shared.previewImage(
+                let preview = try await self.imagePipeline.previewImage(
                     for: configuration.source,
                     variantKey: configuration.variantKey,
                     normalizedCropRect: configuration.normalizedCropRect,
@@ -291,6 +316,7 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
                     self.loadingIndicator.stopAnimating()
                     self.onFailureChanged?(nil)
                     self.onSourceSizeResolved?(preview.sourcePixelSize)
+                    self.onPreviewLuminanceResolved?(self.estimateLuminance(for: preview.image))
                     self.layoutContentIfPossible()
                     self.publishViewportState()
                     self.updateVisibleTiles()
@@ -316,9 +342,18 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
     private func layoutContentIfPossible() {
         guard bounds.width > 0, bounds.height > 0 else { return }
         guard let previewImage = previewImageView.image else { return }
+        guard let configuration else { return }
 
-        let fitted = previewImage.size.aspectFit(in: bounds.size)
-        let contentSize = CGSize(width: max(fitted.width, 1), height: max(fitted.height, 1))
+        let contentSize: CGSize
+        switch configuration.sizingMode {
+        case .aspectFit:
+            let fitted = previewImage.size.aspectFit(in: bounds.size)
+            contentSize = CGSize(width: max(fitted.width, 1), height: max(fitted.height, 1))
+        case .fitWidth:
+            let aspectRatio = max(previewImage.size.width / max(previewImage.size.height, 0.01), 0.01)
+            let fittedHeight = max(bounds.width / aspectRatio, 1)
+            contentSize = CGSize(width: max(bounds.width, 1), height: fittedHeight)
+        }
 
         contentView.frame = CGRect(origin: .zero, size: contentSize)
         previewImageView.frame = contentView.bounds
@@ -409,7 +444,7 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
                 let task = Task { [weak self] in
                     guard let self else { return }
                     do {
-                        let tileImage = try await ReaderImagePipeline.shared.tileImage(
+                        let tileImage = try await self.imagePipeline.tileImage(
                             for: request,
                             variantKey: configuration.variantKey,
                             forceRefresh: configuration.retryToken > 0
@@ -493,17 +528,59 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
 
         return availableWidth < requiredWidth * 0.98 || availableHeight < requiredHeight * 0.98
     }
+
+    @objc
+    private func handleDoubleTap(_ recognizer: UITapGestureRecognizer) {
+        guard configuration?.allowsZoom == true else { return }
+        guard recognizer.state == .ended else { return }
+
+        if scrollView.zoomScale > 1.01 {
+            scrollView.setZoomScale(scrollView.minimumZoomScale, animated: true)
+            return
+        }
+
+        let targetScale = min(scrollView.maximumZoomScale, 2)
+        guard targetScale > scrollView.minimumZoomScale else { return }
+
+        let tapPoint = recognizer.location(in: contentView)
+        let zoomRect = CGRect(
+            x: tapPoint.x - (scrollView.bounds.width / targetScale) * 0.5,
+            y: tapPoint.y - (scrollView.bounds.height / targetScale) * 0.5,
+            width: scrollView.bounds.width / targetScale,
+            height: scrollView.bounds.height / targetScale
+        )
+        scrollView.zoom(to: zoomRect, animated: true)
+    }
+
+    private func estimateLuminance(for image: UIImage) -> CGFloat {
+        guard let cgImage = image.cgImage else { return 0.5 }
+
+        let ciImage = CIImage(cgImage: cgImage)
+        let filter = CIFilter(name: "CIAreaAverage")
+        filter?.setValue(ciImage, forKey: kCIInputImageKey)
+        filter?.setValue(CIVector(cgRect: ciImage.extent), forKey: kCIInputExtentKey)
+
+        guard let outputImage = filter?.outputImage else { return 0.5 }
+
+        var bitmap = [UInt8](repeating: 0, count: 4)
+        let context = CIContext(options: [.workingColorSpace: NSNull()])
+        context.render(
+            outputImage,
+            toBitmap: &bitmap,
+            rowBytes: 4,
+            bounds: CGRect(x: 0, y: 0, width: 1, height: 1),
+            format: .RGBA8,
+            colorSpace: nil
+        )
+
+        let red = CGFloat(bitmap[0]) / 255
+        let green = CGFloat(bitmap[1]) / 255
+        let blue = CGFloat(bitmap[2]) / 255
+        return 0.2126 * red + 0.7152 * green + 0.0722 * blue
+    }
 }
 
 private extension CGSize {
-    func aspectFit(in boundingSize: CGSize) -> CGSize {
-        guard width > 0, height > 0, boundingSize.width > 0, boundingSize.height > 0 else {
-            return .zero
-        }
-        let scale = min(boundingSize.width / width, boundingSize.height / height)
-        return CGSize(width: width * scale, height: height * scale)
-    }
-
     func applyingCrop(_ cropRect: CGRect) -> CGSize {
         CGSize(width: width * cropRect.width, height: height * cropRect.height)
     }

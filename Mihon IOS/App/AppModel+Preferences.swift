@@ -25,6 +25,11 @@ extension AppModel {
         persist()
     }
 
+    func setReaderSpreadBehavior(_ behavior: ReaderSpreadBehavior) {
+        state.readerPreferences.spreadBehavior = behavior
+        persist()
+    }
+
     func setKeepAwake(_ enabled: Bool) {
         state.readerPreferences.keepAwake = enabled
         persist()
