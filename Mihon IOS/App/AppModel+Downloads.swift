@@ -230,6 +230,18 @@ extension AppModel {
                     item.state = .failed
                     item.errorMessage = "Cancelled"
                 }
+                self.appendDiagnostic(
+                    kind: .reader,
+                    severity: .warning,
+                    title: "Download Cancelled",
+                    message: "Chapter download was cancelled.",
+                    errorCode: DiagnosticErrorCode.dlCancelled.rawValue,
+                    module: "Downloads",
+                    metadata: [
+                        "manga": job.manga.title,
+                        "chapter": job.chapter.title
+                    ]
+                )
             }
         } catch {
             await MainActor.run {
@@ -237,6 +249,20 @@ extension AppModel {
                     item.state = .failed
                     item.errorMessage = error.localizedDescription
                 }
+                self.appendDiagnostic(
+                    kind: .reader,
+                    severity: .error,
+                    title: "Download Failed",
+                    message: error.localizedDescription,
+                    errorCode: DiagnosticErrorCode.dlFailed.rawValue,
+                    module: "Downloads",
+                    resolutionHint: "Retry download, then verify source availability and network connection.",
+                    metadata: [
+                        "manga": job.manga.title,
+                        "chapter": job.chapter.title,
+                        "source": job.sourceID
+                    ]
+                )
             }
         }
 

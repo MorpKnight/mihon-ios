@@ -6,6 +6,20 @@
 import Foundation
 
 extension AppModel {
+    enum DiagnosticsExportFormat {
+        case json
+        case csv
+
+        var fileExtension: String {
+            switch self {
+            case .json:
+                return "json"
+            case .csv:
+                return "csv"
+            }
+        }
+    }
+
     func statsSections() -> [StatsSection] {
         let recentHistory = historyDisplayEntries
         let uniqueReadTitles = Set(state.history.map(\.mangaID)).count
@@ -80,7 +94,12 @@ extension AppModel {
     }
 
     func diagnosticsSummary() -> [String] {
-        [
+        let criticalCount = diagnosticLogs.filter { $0.severity == .critical }.count
+        let errorCount = diagnosticLogs.filter { $0.severity == .error }.count
+        let warningCount = diagnosticLogs.filter { $0.severity == .warning }.count
+        let infoCount = diagnosticLogs.filter { $0.severity == .info }.count
+
+        return [
             "Schema v\(state.schemaVersion)",
             "Sources: \(visibleSources.count)/\(sources.count)",
             "Source repos: \(state.sourceRepos.count)",
@@ -90,7 +109,115 @@ extension AppModel {
             "Disk metadata cache: \(formatBytes(cacheStats.diskMetadataBytes))",
             "Cache hits/misses: \(cacheStats.hitCount)/\(cacheStats.missCount)",
             "Error logs: \(diagnosticLogs.count)",
+            "Source errors: \(sourceErrors.count)",
+            "Page load errors: \(pageLoadErrors.count)",
+            "Severity (C/E/W/I): \(criticalCount)/\(errorCount)/\(warningCount)/\(infoCount)",
         ]
+    }
+
+    func filteredDiagnostics(
+        kind: DiagnosticLogKind? = nil,
+        severity: DiagnosticSeverity? = nil,
+        dateRange: ClosedRange<Date>? = nil,
+        query: String = ""
+    ) -> [DiagnosticLogEntry] {
+        let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+
+        return diagnosticLogs.filter { entry in
+            if let kind, entry.kind != kind {
+                return false
+            }
+
+            if let severity, entry.severity != severity {
+                return false
+            }
+
+            if let dateRange, !dateRange.contains(entry.timestamp) {
+                return false
+            }
+
+            guard !normalizedQuery.isEmpty else {
+                return true
+            }
+
+            if entry.title.lowercased().contains(normalizedQuery) || entry.message.lowercased().contains(normalizedQuery) {
+                return true
+            }
+
+            return entry.metadata.contains { key, value in
+                key.lowercased().contains(normalizedQuery) || value.lowercased().contains(normalizedQuery)
+            }
+        }
+    }
+
+    func exportDiagnosticsJSON(entries: [DiagnosticLogEntry]? = nil) -> String {
+        let exportEntries = entries ?? diagnosticLogs
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+
+        guard let data = try? encoder.encode(exportEntries), let output = String(data: data, encoding: .utf8) else {
+            return "[]"
+        }
+        return output
+    }
+
+    func exportDiagnosticsCSV(entries: [DiagnosticLogEntry]? = nil) -> String {
+        let exportEntries = entries ?? diagnosticLogs
+        let header = [
+            "timestamp",
+            "severity",
+            "kind",
+            "title",
+            "message",
+            "errorCode",
+            "module",
+            "resolutionHint",
+            "metadata"
+        ]
+
+        let rows = exportEntries.map { entry in
+            let metadata = entry.metadata
+                .sorted { $0.key < $1.key }
+                .map { "\($0.key)=\($0.value)" }
+                .joined(separator: "; ")
+
+            return [
+                entry.timestamp.formatted(.iso8601),
+                entry.severity.rawValue,
+                entry.kind.rawValue,
+                entry.title,
+                entry.message,
+                entry.errorCode ?? "",
+                entry.module ?? "",
+                entry.resolutionHint ?? "",
+                metadata
+            ]
+            .map(csvEscaped)
+            .joined(separator: ",")
+        }
+
+        return ([header.joined(separator: ",")] + rows).joined(separator: "\n")
+    }
+
+    func diagnosticsExportFileURL(format: DiagnosticsExportFormat, entries: [DiagnosticLogEntry]? = nil) -> URL? {
+        let content: String
+        switch format {
+        case .json:
+            content = exportDiagnosticsJSON(entries: entries)
+        case .csv:
+            content = exportDiagnosticsCSV(entries: entries)
+        }
+
+        let fileName = "mihon-diagnostics-\(Date().formatted(.iso8601.year().month().day().time(includingFractionalSeconds: false))).\(format.fileExtension)"
+        let temporaryURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
+
+        do {
+            try content.write(to: temporaryURL, atomically: true, encoding: .utf8)
+            return temporaryURL
+        } catch {
+            return nil
+        }
     }
 
     func clearDiagnostics() {
@@ -109,7 +236,15 @@ extension AppModel {
         clearCachedSourceManga()
         clearCachedChapters(preservingOfflineOnly: true)
         clearCachedPages()
-        appendDiagnostic(kind: .cache, title: "Metadata Cache Cleared", message: "Source metadata caches were cleared.", metadata: [:])
+        appendDiagnostic(
+            kind: .cache,
+            severity: .info,
+            title: "Metadata Cache Cleared",
+            message: "Source metadata caches were cleared.",
+            errorCode: DiagnosticErrorCode.cacheMetadataCleared.rawValue,
+            module: "DiagnosticsAndCache",
+            metadata: [:]
+        )
         await refreshCacheStats()
     }
 
@@ -119,7 +254,15 @@ extension AppModel {
         clearCachedSourceManga()
         clearCachedChapters(preservingOfflineOnly: true)
         clearCachedPages()
-        appendDiagnostic(kind: .cache, title: "All Caches Cleared", message: "Image and metadata caches were cleared.", metadata: [:])
+        appendDiagnostic(
+            kind: .cache,
+            severity: .info,
+            title: "All Caches Cleared",
+            message: "Image and metadata caches were cleared.",
+            errorCode: DiagnosticErrorCode.cacheAllCleared.rawValue,
+            module: "DiagnosticsAndCache",
+            metadata: [:]
+        )
         await refreshCacheStats()
     }
 
@@ -131,15 +274,28 @@ extension AppModel {
             await refreshCacheStats()
         }
 
-        appendDiagnostic(kind: .cache, title: "Memory Pressure Response", message: "Trimmed in-memory caches by 50%.", metadata: [
-            "pageCache": "\(pageCache.count)",
-            "sourceMangaCache": "\(sourceMangaCache.count)",
-            "chapterCache": "\(chapterCache.count)",
-        ])
+        appendDiagnostic(
+            kind: .cache,
+            severity: .warning,
+            title: "Memory Pressure Response",
+            message: "Trimmed in-memory caches by 50%.",
+            errorCode: DiagnosticErrorCode.cacheMemoryPressureTrim.rawValue,
+            module: "DiagnosticsAndCache",
+            metadata: [
+                "pageCache": "\(pageCache.count)",
+                "sourceMangaCache": "\(sourceMangaCache.count)",
+                "chapterCache": "\(chapterCache.count)",
+            ]
+        )
     }
 
     private func formatBytes(_ bytes: Int) -> String {
         ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
+    }
+
+    private func csvEscaped(_ value: String) -> String {
+        let escaped = value.replacingOccurrences(of: "\"", with: "\"\"")
+        return "\"\(escaped)\""
     }
 }
 

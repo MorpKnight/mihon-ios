@@ -31,7 +31,29 @@ extension ReaderView {
         let visibleFrames = frames.filter { _, frame in
             !frame.intersection(viewport).isNull
         }
-        guard !visibleFrames.isEmpty else { return }
+
+        if visibleFrames.isEmpty {
+            // When the transition page is fully in view, reader render items can be out of viewport.
+            // Pin pageIndex to the nearest boundary so drag-to-transition remains responsive.
+            if let lastOffset = frames.keys.max(),
+               let lastFrame = frames[lastOffset],
+               lastFrame.maxY <= 1,
+               let lastLogicalPage = verticalRenderItems.last?.logicalPageIndex {
+                let boundedLast = boundedPageIndex(for: lastLogicalPage)
+                if boundedLast != pageIndex {
+                    pageIndex = boundedLast
+                }
+                return
+            }
+
+            if let firstOffset = frames.keys.min(),
+               let firstFrame = frames[firstOffset],
+               firstFrame.minY >= viewportHeight - 1,
+               pageIndex != 0 {
+                pageIndex = 0
+            }
+            return
+        }
 
         let selectedIndex: Int?
         if let coveringTop = visibleFrames

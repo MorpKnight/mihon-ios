@@ -114,7 +114,18 @@ extension AppModel {
             repoRecords.insert(record, at: 0)
             state.sourceRepos = repoRecords.map(\.url)
             repoImportErrorMessage = nil
-            appendDiagnostic(kind: .repo, title: "Repo Imported", message: "Imported \(record.importedSources.count) source(s) from \(record.title).", metadata: ["url": record.url])
+            appendDiagnostic(
+                kind: .repo,
+                severity: .info,
+                title: "Repo Imported",
+                message: "Imported \(record.importedSources.count) source(s) from \(record.title).",
+                errorCode: DiagnosticErrorCode.repoImported.rawValue,
+                module: "Sources",
+                metadata: [
+                    "repo": record.title,
+                    "importedSources": "\(record.importedSources.count)"
+                ]
+            )
             rebuildSourceRepository()
             persist()
         } catch {
@@ -123,7 +134,16 @@ extension AppModel {
             repoRecords.insert(failed, at: 0)
             state.sourceRepos = repoRecords.map(\.url)
             repoImportErrorMessage = failed.lastError
-            appendDiagnostic(kind: .repo, title: "Repo Import Failed", message: failed.lastError ?? error.localizedDescription, metadata: ["url": failed.url])
+            appendDiagnostic(
+                kind: .repo,
+                severity: .error,
+                title: "Repo Import Failed",
+                message: failed.lastError ?? error.localizedDescription,
+                errorCode: DiagnosticErrorCode.repoImportFailed.rawValue,
+                module: "Sources",
+                resolutionHint: "Check repository availability and validate manifest format.",
+                metadata: ["repo": failed.title]
+            )
             rebuildSourceRepository()
             persist()
         }
@@ -145,9 +165,18 @@ extension AppModel {
         repoImportErrorMessage = refreshed.lastError
         appendDiagnostic(
             kind: .repo,
+            severity: refreshed.lastError == nil ? .info : .error,
             title: refreshed.lastError == nil ? "Repo Refreshed" : "Repo Refresh Failed",
             message: refreshed.lastError ?? "Refreshed \(refreshed.importedSources.count) source(s) from \(refreshed.title).",
-            metadata: ["url": refreshed.url]
+            errorCode: refreshed.lastError == nil
+                ? DiagnosticErrorCode.repoRefreshed.rawValue
+                : DiagnosticErrorCode.repoRefreshFailed.rawValue,
+            module: "Sources",
+            resolutionHint: refreshed.lastError == nil ? nil : "Retry refresh and verify repository endpoint.",
+            metadata: [
+                "repo": refreshed.title,
+                "importedSources": "\(refreshed.importedSources.count)"
+            ]
         )
         rebuildSourceRepository()
         persist()
@@ -166,7 +195,15 @@ extension AppModel {
         state.sourceRepos.removeAll { $0 == url }
         repoRecords.removeAll { $0.url == url }
         repoImportErrorMessage = nil
-        appendDiagnostic(kind: .repo, title: "Repo Removed", message: "Removed source repository.", metadata: ["url": url])
+        appendDiagnostic(
+            kind: .repo,
+            severity: .info,
+            title: "Repo Removed",
+            message: "Removed source repository.",
+            errorCode: DiagnosticErrorCode.repoRemoved.rawValue,
+            module: "Sources",
+            metadata: [:]
+        )
         rebuildSourceRepository()
         persist()
     }

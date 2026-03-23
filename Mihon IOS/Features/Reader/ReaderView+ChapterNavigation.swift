@@ -38,6 +38,8 @@ extension ReaderView {
             pageIndex = newIndex
             if isVerticalReader {
                 pendingVerticalScrollTarget = newIndex
+            } else {
+                syncPagerDisplayIndex(animated: true)
             }
             return
         }
@@ -56,6 +58,8 @@ extension ReaderView {
             pageIndex = newIndex
             if isVerticalReader {
                 pendingVerticalScrollTarget = newIndex
+            } else {
+                syncPagerDisplayIndex(animated: true)
             }
             return
         }
@@ -124,12 +128,25 @@ extension ReaderView {
 
     func resetTransitionState() {
         if !isChapterTransitioning {
-            transitionState = nil
+            withAnimation(.interactiveSpring(response: 0.22, dampingFraction: 0.86, blendDuration: 0.12)) {
+                transitionState = nil
+            }
         }
     }
 
     func confirmChapterTransition(_ direction: ReaderTransitionDirection) {
-        guard !isNavigationSuspended else { return }
+        if isNavigationSuspended {
+            model.appendDiagnostic(
+                kind: .stateTransition,
+                severity: .warning,
+                title: "Reader Transition Blocked",
+                message: "Chapter transition was requested while navigation was suspended.",
+                errorCode: DiagnosticErrorCode.rdrTransitionBlocked.rawValue,
+                module: "ReaderNavigation",
+                metadata: ["direction": direction == .previous ? "previous" : "next"]
+            )
+            return
+        }
         let targetChapter: Chapter?
         let targetPageIndex: Int
 
@@ -142,8 +159,33 @@ extension ReaderView {
             targetPageIndex = 0
         }
 
-        guard let targetChapter else { return }
-        transitionState = ReaderTransitionState(direction: direction, progress: 1, isLoading: true)
+        guard let targetChapter else {
+            model.appendDiagnostic(
+                kind: .stateTransition,
+                severity: .error,
+                title: "Chapter Transition Failed",
+                message: "No target chapter found for transition direction: \(direction == .previous ? "previous" : "next").",
+                errorCode: DiagnosticErrorCode.rdrInvalidChapter.rawValue,
+                module: "ReaderNavigation"
+            )
+            return
+        }
+        model.appendDiagnostic(
+            kind: .stateTransition,
+            severity: .info,
+            title: "Reader Transition Started",
+            message: "Chapter transition has started.",
+            errorCode: DiagnosticErrorCode.rdrTransitionStarted.rawValue,
+            module: "ReaderNavigation",
+            metadata: [
+                "direction": direction == .previous ? "previous" : "next",
+                "targetChapter": targetChapter.title,
+                "targetPage": direction == .previous ? "last" : "first"
+            ]
+        )
+        withAnimation(.easeOut(duration: 0.2)) {
+            transitionState = ReaderTransitionState(direction: direction, progress: 1, isLoading: true)
+        }
         transitionToChapter(targetChapter, pageIndex: targetPageIndex)
     }
 }

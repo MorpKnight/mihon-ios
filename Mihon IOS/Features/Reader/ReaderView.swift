@@ -134,7 +134,7 @@ struct ReaderView: View {
             readerInteractionPhase = .idle
             pagerSettleTask?.cancel()
             pagerSettleTask = nil
-            pageIndex = pendingPageIndexAfterChapterChange ?? 0
+            pageIndex = boundedPageIndex(for: pendingPageIndexAfterChapterChange ?? 0)
             hasAppliedResumeProgress = false
             startPageLoad(forceRefresh: false)
         }
@@ -376,15 +376,55 @@ struct ReaderView: View {
                 guard isVerticalReader, !isNavigationSuspended else { return }
                 guard abs(value.translation.height) > abs(value.translation.width) else { return }
                 if value.translation.height > 0, pageIndex == 0, previousChapterForCurrentMode() != nil {
-                    if transitionProgress(for: .previous) >= 1 {
+                    let dragMagnitude = max(value.translation.height, 0)
+                    let predictedMagnitude = max(value.predictedEndTranslation.height, 0)
+                    if shouldCommitBoundaryTransition(dragMagnitude: dragMagnitude, predictedMagnitude: predictedMagnitude) {
+                        model.appendDiagnostic(
+                            kind: .stateTransition,
+                            severity: .info,
+                            title: "Reader Boundary Transition",
+                            message: "Committed previous chapter transition from vertical boundary gesture.",
+                            errorCode: DiagnosticErrorCode.rdrVerticalTransitionCommitted.rawValue,
+                            module: "ReaderGesture",
+                            metadata: ["direction": "previous"]
+                        )
                         confirmChapterTransition(.previous)
                     } else {
+                        model.appendDiagnostic(
+                            kind: .stateTransition,
+                            severity: .info,
+                            title: "Reader Boundary Transition",
+                            message: "Cancelled previous chapter transition from vertical boundary gesture.",
+                            errorCode: DiagnosticErrorCode.rdrVerticalTransitionCancelled.rawValue,
+                            module: "ReaderGesture",
+                            metadata: ["direction": "previous"]
+                        )
                         resetTransitionState()
                     }
                 } else if value.translation.height < 0, pageIndex >= max(logicalPages.count - 1, 0), nextChapterForCurrentMode() != nil {
-                    if transitionProgress(for: .next) >= 1 {
+                    let dragMagnitude = max(-value.translation.height, 0)
+                    let predictedMagnitude = max(-value.predictedEndTranslation.height, 0)
+                    if shouldCommitBoundaryTransition(dragMagnitude: dragMagnitude, predictedMagnitude: predictedMagnitude) {
+                        model.appendDiagnostic(
+                            kind: .stateTransition,
+                            severity: .info,
+                            title: "Reader Boundary Transition",
+                            message: "Committed next chapter transition from vertical boundary gesture.",
+                            errorCode: DiagnosticErrorCode.rdrVerticalTransitionCommitted.rawValue,
+                            module: "ReaderGesture",
+                            metadata: ["direction": "next"]
+                        )
                         confirmChapterTransition(.next)
                     } else {
+                        model.appendDiagnostic(
+                            kind: .stateTransition,
+                            severity: .info,
+                            title: "Reader Boundary Transition",
+                            message: "Cancelled next chapter transition from vertical boundary gesture.",
+                            errorCode: DiagnosticErrorCode.rdrVerticalTransitionCancelled.rawValue,
+                            module: "ReaderGesture",
+                            metadata: ["direction": "next"]
+                        )
                         resetTransitionState()
                     }
                 } else {
@@ -457,10 +497,12 @@ struct ReaderView: View {
 
     private var chapterNavigator: some View {
         let total = max(logicalPages.count, 1)
+        let boundedIndex = boundedPageIndex(for: pageIndex)
+        let displayedPage = boundedIndex + 1
         return HStack(spacing: 12) {
             Button {
                 if let chapter = previousChapterForCurrentMode() {
-                    transitionToChapter(chapter, pageIndex: lastPageIndex(for: chapter))
+                    transitionToChapter(chapter, pageIndex: Self.chapterEndPageTarget)
                 }
             } label: {
                 Image(systemName: chapterLeadingIcon)
@@ -474,7 +516,7 @@ struct ReaderView: View {
             .opacity(previousChapterForCurrentMode() == nil ? 0.35 : 1)
 
             HStack(spacing: 12) {
-                Text("\(pageIndex + 1)")
+                Text("\(displayedPage)")
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.white.opacity(0.85))
                     .frame(minWidth: 22, alignment: .trailing)
@@ -482,7 +524,7 @@ struct ReaderView: View {
                 if total > 1 {
                     Slider(
                         value: Binding(
-                            get: { Double(pageIndex + 1) },
+                            get: { Double(displayedPage) },
                             set: { value in
                                 let newIndex = max(0, min(total - 1, Int(value.rounded()) - 1))
                                 if newIndex != pageIndex {
@@ -597,23 +639,31 @@ struct ReaderView: View {
     }
 
     private func handleTap(at point: CGPoint, in size: CGSize) {
-        guard !isNavigationSuspended else { return }
         let zone = ReaderTapZone.resolve(point: point, in: size)
         let intent = zone.intent(isRTLPager: isRTLPager)
+        
+        switch intent {
+        case .toggleChrome:
+            toggleChrome()
+            return
+        default:
+            break
+        }
+        
+        guard !isNavigationSuspended else { return }
+        
         if let transitionDirection = currentPagerTransitionDirection {
             handleTransitionTap(intent: intent, transitionDirection: transitionDirection)
             return
         }
         switch intent {
-        case .toggleChrome:
-            toggleChrome()
         case .forward:
             guard canRouteTapPageTurn else { return }
             advancePageForward()
         case .backward:
             guard canRouteTapPageTurn else { return }
             advancePageBackward()
-        case .none:
+        case .none, .toggleChrome:
             break
         }
     }
@@ -623,6 +673,11 @@ struct ReaderView: View {
 
     func boundedPageIndex(for index: Int) -> Int {
         min(max(index, 0), max(logicalPages.count - 1, 0))
+    }
+
+    private func shouldCommitBoundaryTransition(dragMagnitude: CGFloat, predictedMagnitude: CGFloat) -> Bool {
+        let activation = ReaderTransitionState.activationDistance
+        return dragMagnitude >= activation * 0.7 || predictedMagnitude >= activation
     }
 
 

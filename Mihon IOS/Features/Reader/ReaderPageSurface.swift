@@ -229,11 +229,14 @@ struct ReaderRemoteImageView<Content: View>: View {
         } catch {
             model.appendDiagnostic(
                 kind: .reader,
+                severity: .error,
                 title: "Reader Remote Image Failed",
                 message: error.localizedDescription,
+                errorCode: DiagnosticErrorCode.rdrRemoteImageFailed.rawValue,
+                module: "ReaderPageSurface",
+                resolutionHint: "Retry the page and verify source/network availability.",
                 metadata: [
-                    "pageID": page.id,
-                    "url": url.absoluteString
+                    "page": page.title
                 ]
             )
             if aggressiveRetry, retryToken == 0 {
@@ -286,12 +289,14 @@ struct CachedLocalImageView<Content: View>: View {
             phase = .failure("The downloaded file could not be found.")
             model.appendDiagnostic(
                 kind: .reader,
+                severity: .error,
                 title: "Reader Local Asset Missing",
                 message: "A downloaded page file could not be resolved.",
+                errorCode: DiagnosticErrorCode.rdrLocalAssetMissing.rawValue,
+                module: "ReaderPageSurface",
+                resolutionHint: "Re-download the chapter to restore missing files.",
                 metadata: [
-                    "pageID": page.id,
-                    "assetPath": page.assetPath ?? "<nil>",
-                    "remoteURL": page.remoteURL ?? "<nil>"
+                    "page": page.title
                 ]
             )
             return
@@ -301,11 +306,14 @@ struct CachedLocalImageView<Content: View>: View {
             phase = .failure("The downloaded file is missing from storage.")
             model.appendDiagnostic(
                 kind: .reader,
+                severity: .error,
                 title: "Reader Local Asset Missing",
                 message: "A downloaded page path resolved, but the file is absent on disk.",
+                errorCode: DiagnosticErrorCode.rdrLocalFileNotFound.rawValue,
+                module: "ReaderPageSurface",
+                resolutionHint: "Re-download the chapter to restore missing files.",
                 metadata: [
-                    "pageID": page.id,
-                    "assetPath": fileURL.path
+                    "page": page.title
                 ]
             )
             return
@@ -318,11 +326,14 @@ struct CachedLocalImageView<Content: View>: View {
             phase = .failure("The downloaded file could not be decoded.")
             model.appendDiagnostic(
                 kind: .reader,
+                severity: .error,
                 title: "Reader Local Decode Failed",
                 message: "A downloaded page file exists but could not be decoded into an image.",
+                errorCode: DiagnosticErrorCode.rdrLocalDecodeFailed.rawValue,
+                module: "ReaderPageSurface",
+                resolutionHint: "Re-download the chapter and retry opening the page.",
                 metadata: [
-                    "pageID": page.id,
-                    "assetPath": fileURL.path
+                    "page": page.title
                 ]
             )
             return

@@ -22,6 +22,7 @@ extension ReaderView {
             if pageLoadState != .loaded {
                 pageLoadState = .loaded
             }
+            isChapterTransitioning = false
             finalizeResolvedPages()
             return
         }

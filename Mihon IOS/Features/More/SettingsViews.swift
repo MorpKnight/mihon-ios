@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct SettingsHomeView: View {
     var body: some View {
@@ -345,12 +346,138 @@ struct AdvancedSettingsView: View {
 struct DiagnosticsLogView: View {
     @EnvironmentObject private var model: AppModel
 
+    private enum DiagnosticsTimeRange: String, CaseIterable, Identifiable {
+        case all
+        case last24h
+        case last7d
+        case last30d
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .all:
+                return "All time"
+            case .last24h:
+                return "Last 24h"
+            case .last7d:
+                return "Last 7d"
+            case .last30d:
+                return "Last 30d"
+            }
+        }
+
+        var range: ClosedRange<Date>? {
+            let now = Date()
+            let calendar = Calendar.current
+
+            switch self {
+            case .all:
+                return nil
+            case .last24h:
+                return (calendar.date(byAdding: .hour, value: -24, to: now) ?? now)...now
+            case .last7d:
+                return (calendar.date(byAdding: .day, value: -7, to: now) ?? now)...now
+            case .last30d:
+                return (calendar.date(byAdding: .day, value: -30, to: now) ?? now)...now
+            }
+        }
+    }
+
+    @State private var query = ""
+    @State private var selectedKindRawValue = "all"
+    @State private var selectedSeverityRawValue = "all"
+    @State private var selectedTimeRange: DiagnosticsTimeRange = .all
+    @State private var copyConfirmationMessage: String?
+    @State private var preparedJSONFileURL: URL?
+    @State private var preparedCSVFileURL: URL?
+
+    private var selectedKind: DiagnosticLogKind? {
+        guard selectedKindRawValue != "all" else { return nil }
+        return DiagnosticLogKind(rawValue: selectedKindRawValue)
+    }
+
+    private var selectedSeverity: DiagnosticSeverity? {
+        guard selectedSeverityRawValue != "all" else { return nil }
+        return DiagnosticSeverity(rawValue: selectedSeverityRawValue)
+    }
+
+    private var filteredEntries: [DiagnosticLogEntry] {
+        model.filteredDiagnostics(kind: selectedKind, severity: selectedSeverity, dateRange: selectedTimeRange.range, query: query)
+    }
+
+    private var jsonExport: String {
+        model.exportDiagnosticsJSON(entries: filteredEntries)
+    }
+
+    private var csvExport: String {
+        model.exportDiagnosticsCSV(entries: filteredEntries)
+    }
+
     var body: some View {
         List {
             Section("Summary") {
                 ForEach(model.diagnosticsSummary(), id: \.self) { line in
                     Text(line)
                         .font(.footnote.monospaced())
+                }
+
+                Picker("Kind", selection: $selectedKindRawValue) {
+                    Text("All").tag("all")
+                    ForEach(DiagnosticLogKind.allCases) { kind in
+                        Text(kind.rawValue.capitalized).tag(kind.rawValue)
+                    }
+                }
+
+                Picker("Severity", selection: $selectedSeverityRawValue) {
+                    Text("All").tag("all")
+                    ForEach(DiagnosticSeverity.allCases) { severity in
+                        Text(severity.rawValue.capitalized).tag(severity.rawValue)
+                    }
+                }
+
+                Picker("Range", selection: $selectedTimeRange) {
+                    ForEach(DiagnosticsTimeRange.allCases) { range in
+                        Text(range.title).tag(range)
+                    }
+                }
+
+                Button("Copy JSON Export") {
+                    UIPasteboard.general.string = jsonExport
+                    copyConfirmationMessage = "Copied JSON export to clipboard."
+                }
+
+                ShareLink(item: jsonExport) {
+                    Label("Share JSON Export", systemImage: "square.and.arrow.up")
+                }
+
+                Button("Prepare JSON File") {
+                    preparedJSONFileURL = model.diagnosticsExportFileURL(format: .json, entries: filteredEntries)
+                }
+
+                if let preparedJSONFileURL {
+                    ShareLink(item: preparedJSONFileURL) {
+                        Label("Share JSON File", systemImage: "doc")
+                    }
+                }
+
+                Button("Copy CSV Export") {
+                    UIPasteboard.general.string = csvExport
+                    copyConfirmationMessage = "Copied CSV export to clipboard."
+                }
+
+                ShareLink(item: csvExport) {
+                    Label("Share CSV Export", systemImage: "square.and.arrow.up")
+                }
+
+                Button("Prepare CSV File") {
+                    preparedCSVFileURL = model.diagnosticsExportFileURL(format: .csv, entries: filteredEntries)
+                }
+
+                if let preparedCSVFileURL {
+                    ShareLink(item: preparedCSVFileURL) {
+                        Label("Share CSV File", systemImage: "doc")
+                    }
                 }
 
                 Button("Clear Logs", role: .destructive) {
@@ -360,19 +487,24 @@ struct DiagnosticsLogView: View {
             }
 
             Section("Entries") {
-                if model.diagnosticLogs.isEmpty {
+                if filteredEntries.isEmpty {
                     ContentUnavailableView(
-                        "No Error Logs",
+                        model.diagnosticLogs.isEmpty ? "No Error Logs" : "No Matching Logs",
                         systemImage: "checkmark.circle",
-                        description: Text("New source, reader, repo, and security failures will appear here.")
+                        description: Text(model.diagnosticLogs.isEmpty
+                            ? "New source, reader, repo, and security failures will appear here."
+                            : "Adjust search or filters to find matching entries.")
                     )
                 } else {
-                    ForEach(model.diagnosticLogs) { entry in
+                    ForEach(filteredEntries) { entry in
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
                                 Text(entry.title)
                                     .font(.headline)
                                 Spacer()
+                                Text(entry.severity.rawValue.uppercased())
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(severityColor(entry.severity))
                                 Text(entry.kind.rawValue.uppercased())
                                     .font(.caption.weight(.semibold))
                                     .foregroundStyle(.secondary)
@@ -391,6 +523,21 @@ struct DiagnosticsLogView: View {
                                 }
                             }
 
+                            if let errorCode = entry.errorCode {
+                                LabeledContent("errorCode", value: errorCode)
+                                    .font(.caption.monospaced())
+                            }
+
+                            if let module = entry.module {
+                                LabeledContent("module", value: module)
+                                    .font(.caption.monospaced())
+                            }
+
+                            if let resolutionHint = entry.resolutionHint {
+                                LabeledContent("resolutionHint", value: resolutionHint)
+                                    .font(.caption)
+                            }
+
                             Text(entry.timestamp.formatted(date: .abbreviated, time: .standard))
                                 .font(.caption.monospaced())
                                 .foregroundStyle(.tertiary)
@@ -400,7 +547,31 @@ struct DiagnosticsLogView: View {
                 }
             }
         }
+        .searchable(text: $query, prompt: "Search title, message, metadata")
         .navigationTitle("Error Logs")
+        .alert("Diagnostics Export", isPresented: Binding(
+            get: { copyConfirmationMessage != nil },
+            set: { if !$0 { copyConfirmationMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) {
+                copyConfirmationMessage = nil
+            }
+        } message: {
+            Text(copyConfirmationMessage ?? "")
+        }
+    }
+
+    private func severityColor(_ severity: DiagnosticSeverity) -> Color {
+        switch severity {
+        case .critical:
+            return .red
+        case .error:
+            return .orange
+        case .warning:
+            return .yellow
+        case .info:
+            return .secondary
+        }
     }
 }
 

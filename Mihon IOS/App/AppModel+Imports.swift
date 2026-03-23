@@ -12,10 +12,28 @@ extension AppModel {
             importRecords = result.records
             importJobsState = result.jobs
             for failure in result.failures {
-                appendDiagnostic(kind: .app, title: "Local Import Failed", message: failure.reason, metadata: ["file": failure.fileName])
+                appendDiagnostic(
+                    kind: .app,
+                    severity: .error,
+                    title: "Local Import Failed",
+                    message: failure.reason,
+                    errorCode: DiagnosticErrorCode.appLocalImportFailed.rawValue,
+                    module: "Imports",
+                    resolutionHint: "Verify file format and try importing again.",
+                    metadata: ["file": failure.fileName]
+                )
             }
         } catch {
-            appendDiagnostic(kind: .app, title: "Local Import Failed", message: error.localizedDescription, metadata: [:])
+            appendDiagnostic(
+                kind: .app,
+                severity: .critical,
+                title: "Local Import Failed",
+                message: error.localizedDescription,
+                errorCode: DiagnosticErrorCode.appLocalImportBatchFailed.rawValue,
+                module: "Imports",
+                resolutionHint: "Retry with fewer files and verify storage permissions.",
+                metadata: [:]
+            )
             bootState = .failed("Failed to import local content: \(error.localizedDescription)")
         }
     }

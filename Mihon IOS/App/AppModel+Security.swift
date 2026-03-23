@@ -34,7 +34,16 @@ extension AppModel {
             isAppUnlocked = false
             if let message = userFacingBiometricMessage(for: error) {
                 biometricErrorMessage = message
-                appendDiagnostic(kind: .security, title: "Biometric Unlock Failed", message: message, metadata: [:])
+                appendDiagnostic(
+                    kind: .security,
+                    severity: .critical,
+                    title: "Biometric Unlock Failed",
+                    message: message,
+                    errorCode: DiagnosticErrorCode.secBiometricUnlockFailed.rawValue,
+                    module: "Security",
+                    resolutionHint: "Authenticate with your device passcode, then retry Face ID unlock.",
+                    metadata: [:]
+                )
             }
         }
     }
