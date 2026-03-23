@@ -6,6 +6,8 @@
 import SwiftUI
 
 extension ReaderView {
+    private static let verticalBoundaryOverscrollTolerance: CGFloat = 14
+
     func pageAnchorID(for index: Int) -> String {
         "\(retryTick)-\(currentChapter.id)-\(index)"
     }
@@ -27,6 +29,8 @@ extension ReaderView {
 
     func updateVerticalPageIndex(from frames: [Int: CGRect], viewportHeight: CGFloat) {
         guard isVerticalReader, pageLoadState == .loaded, !frames.isEmpty else { return }
+        updateVerticalBoundaryReadiness(from: frames, viewportHeight: viewportHeight)
+
         let viewport = CGRect(x: 0, y: 0, width: 1, height: viewportHeight)
         let visibleFrames = frames.filter { _, frame in
             !frame.intersection(viewport).isNull
@@ -52,6 +56,32 @@ extension ReaderView {
         let logicalIndex = boundedPageIndex(for: verticalRenderItems[selectedIndex].logicalPageIndex)
         if logicalIndex != pageIndex {
             pageIndex = logicalIndex
+        }
+    }
+
+    func updateVerticalBoundaryReadiness(from frames: [Int: CGRect], viewportHeight: CGFloat) {
+        guard !verticalRenderItems.isEmpty else {
+            verticalBoundaryCanLoadPrevious = false
+            verticalBoundaryCanLoadNext = false
+            return
+        }
+
+        let firstRenderIndex = 0
+        let lastRenderIndex = verticalRenderItems.count - 1
+        guard let firstFrame = frames[firstRenderIndex], let lastFrame = frames[lastRenderIndex] else {
+            verticalBoundaryCanLoadPrevious = false
+            verticalBoundaryCanLoadNext = false
+            return
+        }
+
+        let topReady = firstFrame.minY >= -Self.verticalBoundaryOverscrollTolerance
+        let bottomReady = lastFrame.maxY <= viewportHeight + Self.verticalBoundaryOverscrollTolerance
+
+        if verticalBoundaryCanLoadPrevious != topReady {
+            verticalBoundaryCanLoadPrevious = topReady
+        }
+        if verticalBoundaryCanLoadNext != bottomReady {
+            verticalBoundaryCanLoadNext = bottomReady
         }
     }
 }

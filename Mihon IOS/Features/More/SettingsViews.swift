@@ -260,6 +260,8 @@ struct SecuritySettingsView: View {
 
 struct AdvancedSettingsView: View {
     @EnvironmentObject private var model: AppModel
+    @State private var readerTelemetryLines: [String] = []
+    @State private var isLoadingReaderTelemetry = false
 
     var body: some View {
         Form {
@@ -325,6 +327,20 @@ struct AdvancedSettingsView: View {
                 NavigationLink("Open Error Logs", destination: DiagnosticsLogView())
 
                 if model.state.advancedPreferences.showDiagnostics {
+                    if !readerTelemetryLines.isEmpty {
+                        ForEach(readerTelemetryLines, id: \.self) { line in
+                            Text(line)
+                                .font(.footnote.monospaced())
+                        }
+                    }
+
+                    Button(isLoadingReaderTelemetry ? "Refreshing reader telemetry..." : "Refresh Reader Telemetry") {
+                        Task {
+                            await refreshReaderTelemetry()
+                        }
+                    }
+                    .disabled(isLoadingReaderTelemetry)
+
                     ForEach(model.diagnosticsSummary(), id: \.self) { line in
                         Text(line)
                             .font(.footnote.monospaced())
@@ -339,19 +355,49 @@ struct AdvancedSettingsView: View {
             }
         }
         .navigationTitle("Advanced")
+        .task(id: model.state.advancedPreferences.showDiagnostics) {
+            guard model.state.advancedPreferences.showDiagnostics else {
+                readerTelemetryLines = []
+                return
+            }
+            await refreshReaderTelemetry()
+        }
+    }
+
+    @MainActor
+    private func refreshReaderTelemetry() async {
+        isLoadingReaderTelemetry = true
+        readerTelemetryLines = await model.readerPipelineTelemetrySummary()
+        isLoadingReaderTelemetry = false
     }
 }
 
 struct DiagnosticsLogView: View {
     @EnvironmentObject private var model: AppModel
+    @State private var readerTelemetryLines: [String] = []
+    @State private var isLoadingReaderTelemetry = false
 
     var body: some View {
         List {
             Section("Summary") {
+                if !readerTelemetryLines.isEmpty {
+                    ForEach(readerTelemetryLines, id: \.self) { line in
+                        Text(line)
+                            .font(.footnote.monospaced())
+                    }
+                }
+
                 ForEach(model.diagnosticsSummary(), id: \.self) { line in
                     Text(line)
                         .font(.footnote.monospaced())
                 }
+
+                Button(isLoadingReaderTelemetry ? "Refreshing reader telemetry..." : "Refresh Reader Telemetry") {
+                    Task {
+                        await refreshReaderTelemetry()
+                    }
+                }
+                .disabled(isLoadingReaderTelemetry)
 
                 Button("Clear Logs", role: .destructive) {
                     model.clearDiagnostics()
@@ -401,6 +447,16 @@ struct DiagnosticsLogView: View {
             }
         }
         .navigationTitle("Error Logs")
+        .task {
+            await refreshReaderTelemetry()
+        }
+    }
+
+    @MainActor
+    private func refreshReaderTelemetry() async {
+        isLoadingReaderTelemetry = true
+        readerTelemetryLines = await model.readerPipelineTelemetrySummary()
+        isLoadingReaderTelemetry = false
     }
 }
 

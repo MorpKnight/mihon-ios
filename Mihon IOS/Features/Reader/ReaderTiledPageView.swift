@@ -167,6 +167,8 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
     private var currentGeneration = UUID()
     private var didArmLeftPageTurn = false
     private var didArmRightPageTurn = false
+    private var memoryWarningObserver: NSObjectProtocol?
+    private var memoryPressureTimestamp: Date?
     private let tileLength: CGFloat = 256
 
     override init(frame: CGRect) {
@@ -182,6 +184,9 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
     deinit {
         previewTask?.cancel()
         tileTasks.values.forEach { $0.cancel() }
+        if let memoryWarningObserver {
+            NotificationCenter.default.removeObserver(memoryWarningObserver)
+        }
     }
 
     func apply(configuration: Configuration) {
@@ -268,6 +273,14 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
 
         loadingIndicator.hidesWhenStopped = true
         addSubview(loadingIndicator)
+
+        memoryWarningObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.didReceiveMemoryWarningNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handleMemoryWarning()
+        }
     }
 
     private func reload() {
@@ -389,7 +402,8 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
         }
 
         let scale = UIScreen.main.scale * scrollView.zoomScale
-        let expandedVisibleRect = visibleContentRect().insetBy(dx: -160, dy: -160)
+        let insetPadding: CGFloat = isUnderRecentMemoryPressure ? 72 : 160
+        let expandedVisibleRect = visibleContentRect().insetBy(dx: -insetPadding, dy: -insetPadding)
         let effectiveTileLength = scrollView.zoomScale > 1.01 ? tileLength : max(contentView.bounds.width, contentView.bounds.height)
         let minColumn = max(Int(floor(expandedVisibleRect.minX / effectiveTileLength)), 0)
         let maxColumn = max(Int(floor(expandedVisibleRect.maxX / effectiveTileLength)), minColumn)
@@ -471,6 +485,10 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
             tileViews[key]?.removeFromSuperview()
             tileViews[key] = nil
         }
+
+        if isUnderRecentMemoryPressure {
+            pruneFarOffscreenTiles(maxDistance: max(bounds.width, bounds.height) * 1.2)
+        }
     }
 
     private func removeAllTiles() {
@@ -478,6 +496,36 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
         tileTasks.removeAll()
         tileViews.values.forEach { $0.removeFromSuperview() }
         tileViews.removeAll()
+    }
+
+    private func handleMemoryWarning() {
+        memoryPressureTimestamp = Date()
+        pruneFarOffscreenTiles(maxDistance: max(bounds.width, bounds.height) * 0.8)
+    }
+
+    private var isUnderRecentMemoryPressure: Bool {
+        guard let memoryPressureTimestamp else { return false }
+        return Date().timeIntervalSince(memoryPressureTimestamp) < 20
+    }
+
+    private func pruneFarOffscreenTiles(maxDistance: CGFloat) {
+        let visible = visibleContentRect()
+        var keysToRemove: [ReaderTileCacheKey] = []
+
+        for (key, tileView) in tileViews {
+            let distance = visible.distance(to: tileView.frame)
+            if distance > maxDistance {
+                keysToRemove.append(key)
+            }
+        }
+
+        guard !keysToRemove.isEmpty else { return }
+        for key in keysToRemove {
+            tileTasks[key]?.cancel()
+            tileTasks[key] = nil
+            tileViews[key]?.removeFromSuperview()
+            tileViews[key] = nil
+        }
     }
 
     private func armEdgeTurnIfNeeded() {
@@ -594,5 +642,27 @@ private extension CGRect {
             width: size.width * child.size.width,
             height: size.height * child.size.height
         )
+    }
+
+    func distance(to other: CGRect) -> CGFloat {
+        let dx: CGFloat
+        if maxX < other.minX {
+            dx = other.minX - maxX
+        } else if other.maxX < minX {
+            dx = minX - other.maxX
+        } else {
+            dx = 0
+        }
+
+        let dy: CGFloat
+        if maxY < other.minY {
+            dy = other.minY - maxY
+        } else if other.maxY < minY {
+            dy = minY - other.maxY
+        } else {
+            dy = 0
+        }
+
+        return hypot(dx, dy)
     }
 }

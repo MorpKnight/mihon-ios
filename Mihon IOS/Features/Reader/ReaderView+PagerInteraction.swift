@@ -8,10 +8,19 @@ import SwiftUI
 extension ReaderView {
     func pagerDisplayIndex(for actualIndex: Int) -> Int {
         let boundedActualIndex = boundedPageIndex(for: actualIndex)
-        return pagerItems.firstIndex { item in
+        if let renderIndex = pagerItems.firstIndex(where: { item in
             guard case .render(let renderItem) = item else { return false }
             return renderItem.logicalPageIndex == boundedActualIndex
-        } ?? 1
+        }) {
+            return renderIndex
+        }
+
+        return pagerItems.firstIndex(where: { item in
+            if case .render = item {
+                return true
+            }
+            return false
+        }) ?? 0
     }
 
     func syncPagerDisplayIndex(animated: Bool) {

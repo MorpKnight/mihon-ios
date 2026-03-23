@@ -19,12 +19,19 @@ struct ReaderView: View {
     @State var pageIndex: Int
     @State private var showingSettings = false
     @State private var showingActions = false
+    @State var selectedPageActionContext: ReaderPageActionContext?
+    @State var pageActionResultMessage: String?
+    @State var transitionRecoveryContext: ReaderTransitionRecoveryContext?
+    @State var suppressChapterChangeLifecycle = false
     @State var showingChrome = false
     @State var pageLoadState: ReaderContentLoadState = .idle
     @State var retryTick = 0
     @State var pendingPageIndexAfterChapterChange: Int?
     @State var activeLoadRequestID = UUID()
     @State var prefetchTask: Task<Void, Never>?
+    @State var lastPrefetchPageChangeDate: Date?
+    @State var lastPrefetchPageIndex: Int = 0
+    @State var adaptivePrefetchBonus: Int = 0
     @State var hasAppliedResumeProgress = false
     @State var canPersistPageProgress = false
     @State var pagerDisplayIndex = 1
@@ -39,6 +46,10 @@ struct ReaderView: View {
     @State var deferredSnapshotPreferredPageIndex: Int?
     @State var readerInteractionPhase: ReaderInteractionPhase = .idle
     @State var pagerSettleTask: Task<Void, Never>?
+    @State var adjacentChapterPreloadTasks: [String: Task<Void, Never>] = [:]
+    @State var preloadedAdjacentChapterIDs: Set<String> = []
+    @State var verticalBoundaryCanLoadPrevious = false
+    @State var verticalBoundaryCanLoadNext = false
     @State private var exactPagerWidth: CGFloat = 0
     @State var pageLuminanceByRenderItemID: [String: CGFloat] = [:]
 
@@ -99,8 +110,66 @@ struct ReaderView: View {
             Button("Copy Chapter Title") { }
             Button("Close", role: .cancel) { }
         }
+        .confirmationDialog(
+            "Page Actions",
+            isPresented: Binding(
+                get: { selectedPageActionContext != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        selectedPageActionContext = nil
+                    }
+                }
+            ),
+            titleVisibility: .visible
+        ) {
+            if let context = selectedPageActionContext {
+                if let remoteURL = context.remoteURL {
+                    ShareLink(item: remoteURL) {
+                        Label("Share Page URL", systemImage: "square.and.arrow.up")
+                    }
+                    Button("Copy Page URL") {
+                        copyPageURL(context)
+                    }
+                }
+                if context.page.assetKind == .image {
+                    Button("Save Image") {
+                        savePageImage(context)
+                    }
+                }
+            }
+            Button("Close", role: .cancel) {
+                selectedPageActionContext = nil
+            }
+        } message: {
+            if let context = selectedPageActionContext {
+                Text("\(context.chapterTitle) • \(context.pageTitle)")
+            }
+        }
+        .alert(
+            "Reader",
+            isPresented: Binding(
+                get: { pageActionResultMessage != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        pageActionResultMessage = nil
+                    }
+                }
+            )
+        ) {
+            Button("OK", role: .cancel) {
+                pageActionResultMessage = nil
+            }
+        } message: {
+            Text(pageActionResultMessage ?? "")
+        }
         .onAppear {
             canPersistPageProgress = false
+            lastPrefetchPageChangeDate = nil
+            lastPrefetchPageIndex = pageIndex
+            adaptivePrefetchBonus = 0
+            Task {
+                await imagePipeline.setAggressiveRetryEnabled(model.state.advancedPreferences.aggressiveImageRetry)
+            }
             if let progress = model.progress(for: manga), progress.chapterID == currentChapter.id {
                 pendingPageIndexAfterChapterChange = max(progress.pageIndex, 0)
             }
@@ -113,25 +182,42 @@ struct ReaderView: View {
                 pageIndex = boundedPageIndex
                 return
             }
+            recordPrefetchVelocity(for: boundedPageIndex)
             if canPersistPageProgress, let deferredResumePageIndex, deferredResumePageIndex != newValue {
                 self.deferredResumePageIndex = nil
             }
             prefetchAroundCurrentPage()
+            preloadAdjacentChaptersIfNeeded()
             guard canPersistPageProgress, pageLoadState == .loaded else { return }
             persistProgress()
         }
         .onChange(of: currentChapter.id) { _, _ in
+            if suppressChapterChangeLifecycle {
+                suppressChapterChangeLifecycle = false
+                return
+            }
             canPersistPageProgress = false
+            lastPrefetchPageChangeDate = nil
+            lastPrefetchPageIndex = 0
+            adaptivePrefetchBonus = 0
+            transitionRecoveryContext = nil
             pageImageSizes = [:]
             deferredResumePageIndex = nil
             surfaceInteractionStates = [:]
             pageLuminanceByRenderItemID = [:]
             transitionState = nil
             pendingVerticalScrollTarget = nil
+            verticalBoundaryCanLoadPrevious = false
+            verticalBoundaryCanLoadNext = false
             committedSnapshot = nil
             deferredSnapshot = nil
             deferredSnapshotPreferredPageIndex = nil
             readerInteractionPhase = .idle
+            for task in adjacentChapterPreloadTasks.values {
+                task.cancel()
+            }
+            adjacentChapterPreloadTasks.removeAll()
+            preloadedAdjacentChapterIDs.removeAll()
             pagerSettleTask?.cancel()
             pagerSettleTask = nil
             pageIndex = pendingPageIndexAfterChapterChange ?? 0
@@ -144,6 +230,11 @@ struct ReaderView: View {
         .onChange(of: model.state.readerPreferences.spreadBehavior) { _, _ in
             refreshCommittedSnapshot(preferredPageIndex: nil, animatedSync: false)
         }
+        .onChange(of: model.state.advancedPreferences.aggressiveImageRetry) { _, enabled in
+            Task {
+                await imagePipeline.setAggressiveRetryEnabled(enabled)
+            }
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active, canPersistPageProgress, !logicalPages.isEmpty { persistProgress() }
         }
@@ -151,6 +242,11 @@ struct ReaderView: View {
             activeLoadRequestID = UUID()
             prefetchTask?.cancel()
             pagerSettleTask?.cancel()
+            for task in adjacentChapterPreloadTasks.values {
+                task.cancel()
+            }
+            adjacentChapterPreloadTasks.removeAll()
+            transitionRecoveryContext = nil
             prefetchTask = nil
             Task {
                 await imagePipeline.cancelWindow(for: currentChapter.id)
@@ -202,6 +298,9 @@ struct ReaderView: View {
                                     fillViewport: false,
                                     allowsImagePan: false,
                                     allowsHighDetailAtRest: true,
+                                    onLongPress: {
+                                        presentPageActions(for: item)
+                                    },
                                     onImageMetadataResolved: { size in
                                         registerImageSize(size, for: item.page.id)
                                     },
@@ -304,6 +403,9 @@ struct ReaderView: View {
                                 fillViewport: true,
                                 allowsImagePan: true,
                                 allowsHighDetailAtRest: true,
+                                onLongPress: {
+                                    presentPageActions(for: renderItem)
+                                },
                                 onImageMetadataResolved: { size in
                                     registerImageSize(size, for: renderItem.page.id)
                                 },
@@ -364,9 +466,9 @@ struct ReaderView: View {
             .onChanged { value in
                 guard isVerticalReader, !isNavigationSuspended else { return }
                 guard abs(value.translation.height) > abs(value.translation.width) else { return }
-                if value.translation.height > 0, pageIndex == 0, previousChapterForCurrentMode() != nil {
+                if value.translation.height > 0, verticalBoundaryCanLoadPrevious, previousChapterForCurrentMode() != nil {
                     updateTransitionProgress(for: .previous, translationMagnitude: value.translation.height)
-                } else if value.translation.height < 0, pageIndex >= max(logicalPages.count - 1, 0), nextChapterForCurrentMode() != nil {
+                } else if value.translation.height < 0, verticalBoundaryCanLoadNext, nextChapterForCurrentMode() != nil {
                     updateTransitionProgress(for: .next, translationMagnitude: -value.translation.height)
                 } else if transitionDirection != nil {
                     resetTransitionState()
@@ -375,13 +477,13 @@ struct ReaderView: View {
             .onEnded { value in
                 guard isVerticalReader, !isNavigationSuspended else { return }
                 guard abs(value.translation.height) > abs(value.translation.width) else { return }
-                if value.translation.height > 0, pageIndex == 0, previousChapterForCurrentMode() != nil {
+                if value.translation.height > 0, verticalBoundaryCanLoadPrevious, previousChapterForCurrentMode() != nil {
                     if transitionProgress(for: .previous) >= 1 {
                         confirmChapterTransition(.previous)
                     } else {
                         resetTransitionState()
                     }
-                } else if value.translation.height < 0, pageIndex >= max(logicalPages.count - 1, 0), nextChapterForCurrentMode() != nil {
+                } else if value.translation.height < 0, verticalBoundaryCanLoadNext, nextChapterForCurrentMode() != nil {
                     if transitionProgress(for: .next) >= 1 {
                         confirmChapterTransition(.next)
                     } else {
@@ -623,6 +725,63 @@ struct ReaderView: View {
 
     func boundedPageIndex(for index: Int) -> Int {
         min(max(index, 0), max(logicalPages.count - 1, 0))
+    }
+
+    private func presentPageActions(for item: ReaderRenderItem) {
+        let remoteURL = item.page.remoteURL.flatMap(URL.init(string:))
+        let localURL = model.fileURL(for: item.page)
+        selectedPageActionContext = ReaderPageActionContext(
+            id: item.id,
+            chapterTitle: currentChapter.title,
+            pageTitle: item.page.title,
+            page: item.page,
+            remoteURL: remoteURL,
+            localFileURL: localURL
+        )
+    }
+
+    private func copyPageURL(_ context: ReaderPageActionContext) {
+        guard let remoteURL = context.remoteURL else {
+            pageActionResultMessage = "This page does not have a remote URL."
+            return
+        }
+        UIPasteboard.general.string = remoteURL.absoluteString
+        pageActionResultMessage = "Page URL copied."
+    }
+
+    private func savePageImage(_ context: ReaderPageActionContext) {
+        selectedPageActionContext = nil
+        Task {
+            if let localFileURL = context.localFileURL,
+               FileManager.default.fileExists(atPath: localFileURL.path),
+               let data = try? Data(contentsOf: localFileURL),
+               let image = UIImage(data: data) {
+                await MainActor.run {
+                    UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
+                    pageActionResultMessage = "Image saved to Photos."
+                }
+                return
+            }
+
+            guard let remoteURL = context.remoteURL else {
+                await MainActor.run {
+                    pageActionResultMessage = "No image source available for this page."
+                }
+                return
+            }
+
+            do {
+                let image = try await imagePipeline.image(for: remoteURL, forceRefresh: false)
+                await MainActor.run {
+                    UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
+                    pageActionResultMessage = "Image saved to Photos."
+                }
+            } catch {
+                await MainActor.run {
+                    pageActionResultMessage = "Unable to save image right now."
+                }
+            }
+        }
     }
 
 

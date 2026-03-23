@@ -77,6 +77,11 @@ extension ReaderView {
     }
 
     func transitionToChapter(_ chapter: Chapter, pageIndex targetPageIndex: Int) {
+        transitionRecoveryContext = ReaderTransitionRecoveryContext(
+            chapter: currentChapter,
+            pageIndex: pageIndex,
+            snapshot: committedSnapshot
+        )
         canPersistPageProgress = false
         pendingPageIndexAfterChapterChange = targetPageIndex
         pageLoadState = .idle
@@ -142,7 +147,11 @@ extension ReaderView {
             targetPageIndex = 0
         }
 
-        guard let targetChapter else { return }
+        guard let targetChapter else {
+            resetTransitionState()
+            syncPagerDisplayIndex(animated: true)
+            return
+        }
         transitionState = ReaderTransitionState(direction: direction, progress: 1, isLoading: true)
         transitionToChapter(targetChapter, pageIndex: targetPageIndex)
     }

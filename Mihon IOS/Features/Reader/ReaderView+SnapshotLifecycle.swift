@@ -67,6 +67,11 @@ extension ReaderView {
 
     func flushDeferredSnapshotIfPossible() {
         guard readerInteractionPhase == .idle, !isChapterTransitioning, let deferredSnapshot else { return }
+        guard deferredSnapshot.chapterID == currentChapter.id else {
+            self.deferredSnapshot = nil
+            deferredSnapshotPreferredPageIndex = nil
+            return
+        }
         commitSnapshot(
             deferredSnapshot,
             preferredPageIndex: deferredSnapshotPreferredPageIndex,

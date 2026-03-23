@@ -125,6 +125,19 @@ extension AppModel {
         let previousTotalPages = previous?.chapterID == chapter.id ? previous?.totalPages ?? 0 : 0
         let effectiveTotalPages = max(totalPages ?? chapter.pages.count, previousTotalPages)
         let boundedPage = min(max(pageIndex, 0), max(effectiveTotalPages - 1, 0))
+        let reachedChapterEnd = effectiveTotalPages > 0 && boundedPage >= effectiveTotalPages - 1
+
+        let previousChapterSeenID = state.updatesLastSeenChapterIDByMangaID[manga.id]
+        let shouldMarkUpdatesSeen = reachedChapterEnd && previousChapterSeenID != chapter.id
+
+        if let previous,
+           previous.chapterID == chapter.id,
+           previous.pageIndex == boundedPage,
+           previous.totalPages == effectiveTotalPages,
+           !shouldMarkUpdatesSeen {
+            return
+        }
+
         let record = ReadingProgress(
             mangaID: manga.id,
             chapterID: chapter.id,
@@ -138,6 +151,10 @@ extension AppModel {
             state.progress[index] = record
         } else {
             state.progress.append(record)
+        }
+
+        if shouldMarkUpdatesSeen {
+            state.updatesLastSeenChapterIDByMangaID[manga.id] = chapter.id
         }
 
         if !state.appSettings.incognitoMode {

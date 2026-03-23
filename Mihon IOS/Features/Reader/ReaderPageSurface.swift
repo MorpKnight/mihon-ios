@@ -14,6 +14,7 @@ struct ReaderPageSurface: View {
     let fillViewport: Bool
     let allowsImagePan: Bool
     let allowsHighDetailAtRest: Bool
+    let onLongPress: (() -> Void)?
     let onImageMetadataResolved: (CGSize) -> Void
     let onLuminanceResolved: (CGFloat) -> Void
     let onInteractionStateChanged: (ReaderInteractionState) -> Void
@@ -28,6 +29,12 @@ struct ReaderPageSurface: View {
             content
         }
         .frame(maxWidth: .infinity, maxHeight: fillViewport ? .infinity : nil)
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.32)
+                .onEnded { _ in
+                    onLongPress?()
+                }
+        )
         .onAppear {
             onInteractionStateChanged(.default)
         }

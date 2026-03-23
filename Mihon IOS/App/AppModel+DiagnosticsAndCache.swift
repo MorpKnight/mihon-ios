@@ -98,6 +98,29 @@ extension AppModel {
         persist()
     }
 
+    func readerPipelineTelemetrySummary() async -> [String] {
+        let telemetry = await ReaderImagePipeline.shared.retryTelemetrySnapshot()
+        let retryTop = telemetry.retryReasons
+            .sorted { $0.value > $1.value }
+            .prefix(3)
+            .map { "\($0.key)=\($0.value)" }
+            .joined(separator: ", ")
+        let failureTop = telemetry.failureReasons
+            .sorted { $0.value > $1.value }
+            .prefix(3)
+            .map { "\($0.key)=\($0.value)" }
+            .joined(separator: ", ")
+
+        return [
+            "Reader requests (total/visible/prefetch): \(telemetry.totalRequests)/\(telemetry.visibleRequests)/\(telemetry.prefetchRequests)",
+            "Reader retries: \(telemetry.retries)",
+            "Reader failures: \(telemetry.failures)",
+            "Reader cancellations: \(telemetry.cancellations)",
+            "Top retry reasons: \(retryTop.isEmpty ? "none" : retryTop)",
+            "Top failure reasons: \(failureTop.isEmpty ? "none" : failureTop)",
+        ]
+    }
+
     func clearImageCache() async {
         await ReaderImagePipeline.shared.clear()
         await refreshCacheStats()

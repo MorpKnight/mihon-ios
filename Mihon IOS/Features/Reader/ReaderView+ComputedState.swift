@@ -51,16 +51,32 @@ extension ReaderView {
         readerRenderData.renderItems
     }
 
+    var hasPreviousChapter: Bool {
+        previousChapterForCurrentMode() != nil
+    }
+
+    var hasNextChapter: Bool {
+        nextChapterForCurrentMode() != nil
+    }
+
     var pagerItems: [ReaderPagerItem] {
         var items: [ReaderPagerItem] = []
         if isRTLPager {
-            items.append(.nextChapter)
+            if hasNextChapter {
+                items.append(.nextChapter)
+            }
             items.append(contentsOf: pagerRenderItems.map(ReaderPagerItem.render))
-            items.append(.previousChapter)
+            if hasPreviousChapter {
+                items.append(.previousChapter)
+            }
         } else {
-            items.append(.previousChapter)
+            if hasPreviousChapter {
+                items.append(.previousChapter)
+            }
             items.append(contentsOf: pagerRenderItems.map(ReaderPagerItem.render))
-            items.append(.nextChapter)
+            if hasNextChapter {
+                items.append(.nextChapter)
+            }
         }
         return items
     }
