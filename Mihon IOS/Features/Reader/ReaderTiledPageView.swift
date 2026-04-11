@@ -220,12 +220,13 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
 
     func scrollViewDidZoom(_ scrollView: UIScrollView) {
         centerContentIfNeeded()
+        updatePanBehavior()
         updateVisibleTiles()
         publishViewportState()
     }
 
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        if scrollView.zoomScale <= 1.01 {
+        if !canTurnPagesFromHorizontalEdges {
             didArmLeftPageTurn = false
             didArmRightPageTurn = false
         }
@@ -248,6 +249,7 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
 
         scrollView.delegate = self
         scrollView.backgroundColor = .clear
+        scrollView.isDirectionalLockEnabled = false
         scrollView.showsHorizontalScrollIndicator = false
         scrollView.showsVerticalScrollIndicator = false
         scrollView.bouncesZoom = true
@@ -297,7 +299,7 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
         )
         let fittedPreviewSize = CGSize(width: bounds.width, height: bounds.width / croppedAspectRatio)
             .aspectFit(in: bounds.size)
-        let maxPreviewPixels = max(fittedPreviewSize.width, fittedPreviewSize.height, 1) * UIScreen.main.scale * 3
+        let maxPreviewPixels = max(fittedPreviewSize.width, fittedPreviewSize.height, 1) * traitCollection.displayScale * 3
         previewTask = Task { [weak self] in
             guard let self else { return }
             do {
@@ -337,6 +339,7 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
         if scrollView.zoomScale < scrollView.minimumZoomScale || scrollView.zoomScale > scrollView.maximumZoomScale {
             scrollView.zoomScale = scrollView.minimumZoomScale
         }
+        updatePanBehavior()
     }
 
     private func layoutContentIfPossible() {
@@ -360,6 +363,7 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
         tileOverlayView.frame = contentView.bounds
         scrollView.contentSize = contentSize
         centerContentIfNeeded()
+        updatePanBehavior()
         updateVisibleTiles()
     }
 
@@ -367,6 +371,7 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
         let horizontalInset = max((bounds.width - scrollView.contentSize.width) / 2, 0)
         let verticalInset = max((bounds.height - scrollView.contentSize.height) / 2, 0)
         scrollView.contentInset = UIEdgeInsets(top: verticalInset, left: horizontalInset, bottom: verticalInset, right: horizontalInset)
+        stabilizeContentOffsetIfNeeded()
     }
 
     private func visibleContentRect() -> CGRect {
@@ -388,7 +393,7 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
             return
         }
 
-        let scale = UIScreen.main.scale * scrollView.zoomScale
+        let scale = traitCollection.displayScale * scrollView.zoomScale
         let expandedVisibleRect = visibleContentRect().insetBy(dx: -160, dy: -160)
         let effectiveTileLength = scrollView.zoomScale > 1.01 ? tileLength : max(contentView.bounds.width, contentView.bounds.height)
         let minColumn = max(Int(floor(expandedVisibleRect.minX / effectiveTileLength)), 0)
@@ -419,8 +424,8 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
                     source: configuration.source,
                     normalizedCropRect: absoluteCropRect,
                     targetPixelSize: CGSize(
-                        width: tileRect.width * max(scale, UIScreen.main.scale * 1.25),
-                        height: tileRect.height * max(scale, UIScreen.main.scale * 1.25)
+                        width: tileRect.width * max(scale, traitCollection.displayScale * 1.25),
+                        height: tileRect.height * max(scale, traitCollection.displayScale * 1.25)
                     ),
                     colorTransform: configuration.colorTransform
                 )
@@ -481,7 +486,7 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
     }
 
     private func armEdgeTurnIfNeeded() {
-        guard scrollView.zoomScale > 1.01 else { return }
+        guard canTurnPagesFromHorizontalEdges else { return }
         let contentWidth = scrollView.contentSize.width
         let leftBoundary = -scrollView.adjustedContentInset.left + 1
         let rightBoundary = contentWidth - scrollView.bounds.width + scrollView.adjustedContentInset.right - 1
@@ -494,6 +499,8 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
     }
 
     private func publishViewportState() {
+        stabilizeContentOffsetIfNeeded()
+
         let contentWidth = scrollView.contentSize.width
         let leftBoundary = -scrollView.adjustedContentInset.left + 1
         let rightBoundary = contentWidth - scrollView.bounds.width + scrollView.adjustedContentInset.right - 1
@@ -511,18 +518,66 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
             ReaderPageViewportState(
                 scale: scrollView.zoomScale,
                 contentOffset: scrollView.contentOffset,
-                isLeftEdgeReadyForPageTurn: scrollView.zoomScale > 1.01 && didArmRightPageTurn,
-                isRightEdgeReadyForPageTurn: scrollView.zoomScale > 1.01 && didArmLeftPageTurn
+                isLeftEdgeReadyForPageTurn: canTurnPagesFromHorizontalEdges && didArmRightPageTurn,
+                isRightEdgeReadyForPageTurn: canTurnPagesFromHorizontalEdges && didArmLeftPageTurn
             )
         )
+    }
+
+    private var centeredContentOffset: CGPoint {
+        CGPoint(x: -scrollView.adjustedContentInset.left, y: -scrollView.adjustedContentInset.top)
+    }
+
+    private var hasHorizontallyScrollableContent: Bool {
+        let visibleWidth = max(scrollView.bounds.width - scrollView.adjustedContentInset.left - scrollView.adjustedContentInset.right, 0)
+        return scrollView.contentSize.width > visibleWidth + 1
+    }
+
+    private var hasVerticallyScrollableContent: Bool {
+        let visibleHeight = max(scrollView.bounds.height - scrollView.adjustedContentInset.top - scrollView.adjustedContentInset.bottom, 0)
+        return scrollView.contentSize.height > visibleHeight + 1
+    }
+
+    private var hasScrollableContent: Bool {
+        hasHorizontallyScrollableContent || hasVerticallyScrollableContent
+    }
+
+    private var canTurnPagesFromHorizontalEdges: Bool {
+        // Allow edge page turns even when horizontally unscrollable or unzoomed
+        // so that users can swipe to the next page smoothly.
+        return true
+    }
+
+    private func updatePanBehavior() {
+        scrollView.panGestureRecognizer.isEnabled = true
+        scrollView.alwaysBounceHorizontal = hasHorizontallyScrollableContent
+        scrollView.alwaysBounceVertical = hasVerticallyScrollableContent
+        scrollView.bounces = hasScrollableContent
+        if !canTurnPagesFromHorizontalEdges {
+            didArmLeftPageTurn = false
+            didArmRightPageTurn = false
+        }
+    }
+
+    private func stabilizeContentOffsetIfNeeded() {
+        let centeredOffset = centeredContentOffset
+        var targetOffset = scrollView.contentOffset
+        if !hasHorizontallyScrollableContent {
+            targetOffset.x = centeredOffset.x
+        }
+        if !hasVerticallyScrollableContent {
+            targetOffset.y = centeredOffset.y
+        }
+        guard targetOffset != scrollView.contentOffset else { return }
+        scrollView.contentOffset = targetOffset
     }
 
     private var needsDetailTilesAtRest: Bool {
         guard let previewImage = previewImageView.image else { return false }
         guard contentView.bounds.width > 0, contentView.bounds.height > 0 else { return false }
 
-        let requiredWidth = contentView.bounds.width * UIScreen.main.scale
-        let requiredHeight = contentView.bounds.height * UIScreen.main.scale
+        let requiredWidth = contentView.bounds.width * traitCollection.displayScale
+        let requiredHeight = contentView.bounds.height * traitCollection.displayScale
         let availableWidth = previewImage.size.width * previewImage.scale
         let availableHeight = previewImage.size.height * previewImage.scale
 
@@ -577,12 +632,6 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
         let green = CGFloat(bitmap[1]) / 255
         let blue = CGFloat(bitmap[2]) / 255
         return 0.2126 * red + 0.7152 * green + 0.0722 * blue
-    }
-}
-
-private extension CGSize {
-    func applyingCrop(_ cropRect: CGRect) -> CGSize {
-        CGSize(width: width * cropRect.width, height: height * cropRect.height)
     }
 }
 
