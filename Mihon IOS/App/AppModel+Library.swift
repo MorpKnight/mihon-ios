@@ -102,24 +102,39 @@ extension AppModel {
     }
 
     func libraryItems(selectedCategoryID: String?, searchText: String = "", sortMode: LibrarySortMode = .recent) -> [LibraryManga] {
+        let mangaIndex = allMangaByID()
+        let progressIndex = progressByMangaID()
+        let normalizedSearchText = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let downloadedOnly = state.appSettings.downloadedOnly
+        var chaptersByMangaID: [String: [Chapter]] = [:]
+
+        func chaptersForManga(_ manga: Manga) -> [Chapter] {
+            if let cached = chaptersByMangaID[manga.id] {
+                return cached
+            }
+            let resolved = chapters(for: manga)
+            chaptersByMangaID[manga.id] = resolved
+            return resolved
+        }
+
         let filtered: [LibraryManga] = state.library
             .filter { selectedCategoryID == nil || $0.categoryID == selectedCategoryID }
             .compactMap { entry -> LibraryManga? in
-                guard let manga = allManga.first(where: { $0.id == entry.mangaID }) else { return nil }
+                guard let manga = mangaIndex[entry.mangaID] else { return nil }
                 return LibraryManga(
                     id: manga.id,
                     manga: manga,
                     entry: entry,
-                    progress: progress(for: manga),
-                    latestChapter: latestChapter(for: manga)
+                    progress: progressIndex[manga.id],
+                    latestChapter: chaptersForManga(manga).first
                 )
             }
             .filter { item in
-                searchText.isEmpty || item.manga.title.localizedCaseInsensitiveContains(searchText)
+                normalizedSearchText.isEmpty || item.manga.title.localizedCaseInsensitiveContains(normalizedSearchText)
             }
             .filter { item in
-                guard state.appSettings.downloadedOnly else { return true }
-                return chapters(for: item.manga).contains(where: \.isDownloaded)
+                guard downloadedOnly else { return true }
+                return chaptersForManga(item.manga).contains(where: \.isDownloaded)
             }
 
         switch sortMode {
@@ -128,7 +143,7 @@ extension AppModel {
         case .alphabetical:
             return filtered.sorted { $0.manga.title < $1.manga.title }
         case .chapterCount:
-            return filtered.sorted { chapters(for: $0.manga).count > chapters(for: $1.manga).count }
+            return filtered.sorted { chaptersForManga($0.manga).count > chaptersForManga($1.manga).count }
         }
     }
 

@@ -195,7 +195,7 @@ extension AppModel {
     private func performDownload(jobID: UUID) async {
         let backgroundTaskID = await MainActor.run {
             backgroundTaskManager.beginTask(name: "Mihon.Download.\(jobID.uuidString)") { [weak self] in
-                Task { @MainActor in
+                Task { @MainActor [weak self] in
                     self?.cancelDownload(jobID: jobID)
                 }
             }

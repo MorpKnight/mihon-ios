@@ -300,7 +300,7 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
         let fittedPreviewSize = CGSize(width: bounds.width, height: bounds.width / croppedAspectRatio)
             .aspectFit(in: bounds.size)
         let maxPreviewPixels = max(fittedPreviewSize.width, fittedPreviewSize.height, 1) * traitCollection.displayScale * 3
-        previewTask = Task { [weak self] in
+        previewTask = Task { @MainActor [weak self] in
             guard let self else { return }
             do {
                 let preview = try await self.imagePipeline.previewImage(
@@ -311,24 +311,20 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
                     colorTransform: configuration.colorTransform,
                     forceRefresh: configuration.retryToken > 0
                 )
-                await MainActor.run {
-                    guard self.currentGeneration == generation else { return }
-                    self.previewImageView.image = preview.image
-                    self.croppedSourcePixelSize = preview.sourcePixelSize.applyingCrop(configuration.normalizedCropRect)
-                    self.loadingIndicator.stopAnimating()
-                    self.onFailureChanged?(nil)
-                    self.onSourceSizeResolved?(preview.sourcePixelSize)
-                    self.onPreviewLuminanceResolved?(self.estimateLuminance(for: preview.image))
-                    self.layoutContentIfPossible()
-                    self.publishViewportState()
-                    self.updateVisibleTiles()
-                }
+                guard self.currentGeneration == generation else { return }
+                self.previewImageView.image = preview.image
+                self.croppedSourcePixelSize = preview.sourcePixelSize.applyingCrop(configuration.normalizedCropRect)
+                self.loadingIndicator.stopAnimating()
+                self.onFailureChanged?(nil)
+                self.onSourceSizeResolved?(preview.sourcePixelSize)
+                self.onPreviewLuminanceResolved?(self.estimateLuminance(for: preview.image))
+                self.layoutContentIfPossible()
+                self.publishViewportState()
+                self.updateVisibleTiles()
             } catch {
-                await MainActor.run {
-                    guard self.currentGeneration == generation else { return }
-                    self.loadingIndicator.stopAnimating()
-                    self.onFailureChanged?("Tap retry to request the page again.")
-                }
+                guard self.currentGeneration == generation else { return }
+                self.loadingIndicator.stopAnimating()
+                self.onFailureChanged?("Tap retry to request the page again.")
             }
         }
     }
@@ -446,7 +442,7 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
                 guard tileTasks[key] == nil, imageView.image == nil else { continue }
 
                 let generation = currentGeneration
-                let task = Task { [weak self] in
+                let task = Task { @MainActor [weak self] in
                     guard let self else { return }
                     do {
                         let tileImage = try await self.imagePipeline.tileImage(
@@ -454,15 +450,11 @@ final class ReaderTiledPageHostView: UIView, UIScrollViewDelegate {
                             variantKey: configuration.variantKey,
                             forceRefresh: configuration.retryToken > 0
                         )
-                        await MainActor.run {
-                            guard self.currentGeneration == generation else { return }
-                            self.tileViews[key]?.image = tileImage
-                            self.tileTasks[key] = nil
-                        }
+                        guard self.currentGeneration == generation else { return }
+                        self.tileViews[key]?.image = tileImage
+                        self.tileTasks[key] = nil
                     } catch {
-                        await MainActor.run {
-                            self.tileTasks[key] = nil
-                        }
+                        self.tileTasks[key] = nil
                     }
                 }
                 tileTasks[key] = task

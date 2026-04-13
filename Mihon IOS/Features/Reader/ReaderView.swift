@@ -23,6 +23,8 @@ struct ReaderView: View {
     @State var pageLoadState: ReaderContentLoadState = .idle
     @State var retryTick = 0
     @State var pendingPageIndexAfterChapterChange: Int?
+    @State var sliderActiveValue: Double? = nil
+    @State private var dragInitialPageIndex: Int? = nil
     @State var activeLoadRequestID = UUID()
     @State var prefetchTask: Task<Void, Never>?
     @State var hasAppliedResumeProgress = false
@@ -39,7 +41,8 @@ struct ReaderView: View {
     @State var deferredSnapshotPreferredPageIndex: Int?
     @State var readerInteractionPhase: ReaderInteractionPhase = .idle
     @State var pagerSettleTask: Task<Void, Never>?
-    @State private var exactPagerWidth: CGFloat = 0
+    @State var exactPagerWidth: CGFloat = 0
+    @State var exactPagerHeight: CGFloat = 0
     @State var pageLuminanceByRenderItemID: [String: CGFloat] = [:]
 
     private let verticalScrollCoordinateSpace = "reader.vertical.scroll"
@@ -71,10 +74,10 @@ struct ReaderView: View {
                             }
                     )
                     .onAppear {
-                        exactPagerWidth = max(geometry.size.width, 1)
+                        updatePagerViewportSize(geometry.size)
                     }
-                    .onChange(of: geometry.size.width) { _, newWidth in
-                        exactPagerWidth = max(newWidth, 1)
+                    .onChange(of: geometry.size) { _, newSize in
+                        updatePagerViewportSize(newSize)
                     }
             }
 
@@ -160,6 +163,8 @@ struct ReaderView: View {
 
     @ViewBuilder
     private func readerBody(in rootSize: CGSize) -> some View {
+        let colorFilter = model.state.readerPreferences.colorFilter
+
         if pageLoadState == .loading && currentPages.isEmpty {
             ProgressView("Loading chapter…")
                 .tint(.white)
@@ -198,7 +203,9 @@ struct ReaderView: View {
                                 ReaderPageSurface(
                                     imagePipeline: imagePipeline,
                                     item: item,
-                                    filter: model.state.readerPreferences.colorFilter,
+                                    localFileURL: model.fileURL(for: item.page),
+                                    filter: colorFilter,
+                                    imageSizingMode: .fitWidth,
                                     fillViewport: false,
                                     allowsImagePan: false,
                                     allowsHighDetailAtRest: true,
@@ -266,13 +273,14 @@ struct ReaderView: View {
                 }
             }
         } else {
-            pagedReaderBody(width: max(exactPagerWidth > 0 ? exactPagerWidth : rootSize.width, 1))
+            pagedReaderBody(size: CGSize(width: max(exactPagerWidth > 0 ? exactPagerWidth : rootSize.width, 1), height: max(rootSize.height, 1)))
             .ignoresSafeArea()
         }
     }
 
-    private func pagedReaderBody(width: CGFloat) -> some View {
-        let pageWidth = max(width, 1)
+    private func pagedReaderBody(size: CGSize) -> some View {
+        let pageWidth = max(size.width, 1)
+        let pageHeight = max(size.height, 1)
         return ReaderPagedContainer(
             currentIndex: $pagerDisplayIndex,
             itemCount: pagerItems.count,
@@ -300,7 +308,9 @@ struct ReaderView: View {
                             ReaderPageSurface(
                                 imagePipeline: imagePipeline,
                                 item: renderItem,
-                                filter: model.state.readerPreferences.colorFilter,
+                                localFileURL: model.fileURL(for: renderItem.page),
+                                filter: colorFilter,
+                                imageSizingMode: .aspectFit,
                                 fillViewport: true,
                                 allowsImagePan: true,
                                 allowsHighDetailAtRest: true,
@@ -342,7 +352,7 @@ struct ReaderView: View {
                             )
                         }
                     }
-                    .frame(width: pageWidth)
+                    .frame(width: pageWidth, height: pageHeight)
                     .ignoresSafeArea()
                 }
             }
@@ -357,6 +367,9 @@ struct ReaderView: View {
         .onChange(of: currentChapter.id) { _, _ in
             syncPagerDisplayIndex(animated: false)
         }
+        .sensoryFeedback(.impact(weight: .medium), trigger: transitionState?.progress == 1.0) { old, new in
+            return !old && new
+        }
     }
 
     private var verticalBoundaryGesture: some Gesture {
@@ -364,18 +377,28 @@ struct ReaderView: View {
             .onChanged { value in
                 guard isVerticalReader, !isNavigationSuspended else { return }
                 guard abs(value.translation.height) > abs(value.translation.width) else { return }
-                if value.translation.height > 0, pageIndex == 0, previousChapterForCurrentMode() != nil {
+                
+                if dragInitialPageIndex == nil {
+                    dragInitialPageIndex = pageIndex
+                }
+                let initialPage = dragInitialPageIndex ?? pageIndex
+
+                if value.translation.height > 0, initialPage == 0, previousChapterForCurrentMode() != nil {
                     updateTransitionProgress(for: .previous, translationMagnitude: value.translation.height)
-                } else if value.translation.height < 0, pageIndex >= max(logicalPages.count - 1, 0), nextChapterForCurrentMode() != nil {
+                } else if value.translation.height < 0, initialPage >= max(logicalPages.count - 1, 0), nextChapterForCurrentMode() != nil {
                     updateTransitionProgress(for: .next, translationMagnitude: -value.translation.height)
                 } else if transitionDirection != nil {
                     resetTransitionState()
                 }
             }
             .onEnded { value in
+                let initialPage = dragInitialPageIndex ?? pageIndex
+                dragInitialPageIndex = nil
+                
                 guard isVerticalReader, !isNavigationSuspended else { return }
                 guard abs(value.translation.height) > abs(value.translation.width) else { return }
-                if value.translation.height > 0, pageIndex == 0, previousChapterForCurrentMode() != nil {
+                
+                if value.translation.height > 0, initialPage == 0, previousChapterForCurrentMode() != nil {
                     let dragMagnitude = max(value.translation.height, 0)
                     let predictedMagnitude = max(value.predictedEndTranslation.height, 0)
                     if shouldCommitBoundaryTransition(dragMagnitude: dragMagnitude, predictedMagnitude: predictedMagnitude) {
@@ -401,7 +424,7 @@ struct ReaderView: View {
                         )
                         resetTransitionState()
                     }
-                } else if value.translation.height < 0, pageIndex >= max(logicalPages.count - 1, 0), nextChapterForCurrentMode() != nil {
+                } else if value.translation.height < 0, initialPage >= max(logicalPages.count - 1, 0), nextChapterForCurrentMode() != nil {
                     let dragMagnitude = max(-value.translation.height, 0)
                     let predictedMagnitude = max(-value.predictedEndTranslation.height, 0)
                     if shouldCommitBoundaryTransition(dragMagnitude: dragMagnitude, predictedMagnitude: predictedMagnitude) {
@@ -498,7 +521,7 @@ struct ReaderView: View {
     private var chapterNavigator: some View {
         let total = max(logicalPages.count, 1)
         let boundedIndex = boundedPageIndex(for: pageIndex)
-        let displayedPage = boundedIndex + 1
+        let displayedPage = sliderActiveValue != nil ? Int(sliderActiveValue!.rounded()) : (boundedIndex + 1)
         return HStack(spacing: 12) {
             Button {
                 if let chapter = previousChapterForCurrentMode() {
@@ -524,8 +547,9 @@ struct ReaderView: View {
                 if total > 1 {
                     Slider(
                         value: Binding(
-                            get: { Double(displayedPage) },
+                            get: { sliderActiveValue ?? Double(displayedPage) },
                             set: { value in
+                                sliderActiveValue = value
                                 let newIndex = max(0, min(total - 1, Int(value.rounded()) - 1))
                                 if newIndex != pageIndex {
                                     pageIndex = newIndex
@@ -537,7 +561,11 @@ struct ReaderView: View {
                         ),
                         in: 1...Double(total),
                         step: 1
-                    )
+                    ) { editing in
+                        if !editing {
+                            sliderActiveValue = nil
+                        }
+                    }
                     .tint(.white)
                 } else {
                     Capsule()

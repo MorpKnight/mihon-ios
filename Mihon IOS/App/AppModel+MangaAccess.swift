@@ -14,7 +14,7 @@ extension AppModel {
 
     var allManga: [Manga] {
         let remote = (
-            repository.sources()
+            sources
                 .filter { $0.kind == .remote }
                 .flatMap { repository.mangas(for: $0.id) } +
             sourceMangaCache.values.flatMap { $0 } +
@@ -28,6 +28,14 @@ extension AppModel {
         }
         return remote.values.sorted { $0.title < $1.title } +
         localContentRepository.mangas(from: importRecords, sourceID: "local-files")
+    }
+
+    func allMangaByID() -> [String: Manga] {
+        Dictionary(uniqueKeysWithValues: allManga.map { ($0.id, $0) })
+    }
+
+    func progressByMangaID() -> [String: ReadingProgress] {
+        Dictionary(uniqueKeysWithValues: state.progress.map { ($0.mangaID, $0) })
     }
 
     func mangas(for source: Source) -> [Manga] {

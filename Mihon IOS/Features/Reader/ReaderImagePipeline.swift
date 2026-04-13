@@ -128,11 +128,21 @@ actor ReaderImagePipeline: ReaderImagePipelining {
         lookahead: Int
     ) async {
         let boundedLookahead = max(lookahead, 0)
-        let targetURLs = Set(logicalPages.enumerated().compactMap { index, logicalPage -> URL? in
-            guard abs(index - currentIndex) <= boundedLookahead else { return nil }
-            guard let remoteURL = logicalPage.sourcePage.remoteURL else { return nil }
-            return URL(string: remoteURL)
-        })
+        
+        let urlDistances: [(url: URL, distanceScore: Int)] = logicalPages.enumerated().compactMap { index, logicalPage in
+            let distance = abs(index - currentIndex)
+            guard distance <= boundedLookahead else { return nil }
+            guard let remoteURL = logicalPage.sourcePage.remoteURL, let url = URL(string: remoteURL) else { return nil }
+            
+            // Prioritize closer pages. Break ties based on reading direction (assume reverse if we started near the end)
+            let isReversed = currentIndex > logicalPages.count / 2
+            let tieBreaker = isReversed ? (index - currentIndex) : (currentIndex - index)
+            let score = distance * 10 + tieBreaker
+            return (url, score)
+        }
+        
+        let orderedURLs = urlDistances.sorted { $0.distanceScore < $1.distanceScore }.map { $0.url }
+        let targetURLs = Set(orderedURLs)
 
         if activeWindowChapterID != chapterID {
             cancelPrefetchTasks()
@@ -150,12 +160,12 @@ actor ReaderImagePipeline: ReaderImagePipelining {
             inFlight[url] = nil
         }
 
-        for url in targetURLs {
+        for url in orderedURLs {
             if Task.isCancelled { return }
             if inFlight[url] != nil || prefetchTasksByURL[url] != nil { continue }
             let task = Task<Void, Never> {
                 defer {
-                    Task { await self.finishPrefetch(for: url) }
+                    Task { self.finishPrefetch(for: url) }
                 }
                 guard !Task.isCancelled else { return }
                 _ = try? await image(for: url, forceRefresh: false)

@@ -16,6 +16,8 @@ struct LibraryView: View {
     @State private var selectedCategoryID: String?
     @State private var searchText = ""
     @State private var sortMode: LibrarySortMode = .recent
+    // Fix #4: Changed from a NavigationDestination push to a fullScreenCover
+    // trigger, avoiding the jarring context-menu-to-push-stack animation.
     @State private var quickReadTarget: QuickReadTarget?
 
     private var items: [LibraryManga] {
@@ -23,10 +25,13 @@ struct LibraryView: View {
     }
 
     var body: some View {
+        let hideSensitiveCovers = model.state.securityPreferences.hideSensitiveCovers
+        let continueReadingItems = model.state.libraryPreferences.showContinueReading ? model.continueReadingItems : []
+
         List {
-            if model.state.libraryPreferences.showContinueReading && !model.continueReadingItems.isEmpty {
+            if !continueReadingItems.isEmpty {
                 Section("Continue Reading") {
-                    ForEach(model.continueReadingItems.prefix(3)) { item in
+                    ForEach(continueReadingItems.prefix(1)) { item in
                         if let chapter = model.startChapter(for: item.manga) {
                             NavigationLink {
                                 ReaderView(manga: item.manga, initialChapter: chapter)
@@ -34,7 +39,7 @@ struct LibraryView: View {
                                 VStack(alignment: .leading, spacing: 6) {
                                     Text(item.manga.title)
                                         .font(.headline)
-                                    Text(model.progressDisplayText(for: item.manga, fallbackChapter: chapter) ?? chapter.title)
+                                    Text(item.progress.map { "\($0.chapterTitle ?? chapter.title) • Page \($0.pageIndex + 1) of \(max($0.totalPages, 1))" } ?? chapter.title)
                                         .font(.subheadline)
                                         .foregroundStyle(.secondary)
                                 }
@@ -43,20 +48,6 @@ struct LibraryView: View {
                         }
                     }
                 }
-            }
-
-            Section {
-                Picker("Category", selection: Binding(
-                    get: { selectedCategoryID ?? "all" },
-                    set: { selectedCategoryID = $0 == "all" ? nil : $0 }
-                )) {
-                    Text("All").tag("all")
-                    ForEach(model.categories) { category in
-                        Text(category.name).tag(category.id)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .padding(.vertical, 4)
             }
 
             Section("Library") {
@@ -73,7 +64,11 @@ struct LibraryView: View {
                             MangaDetailView(manga: item.manga)
                         } label: {
                             HStack(spacing: 14) {
-                                MangaCoverView(manga: item.manga)
+                                MangaCoverView(
+                                    manga: item.manga,
+                                    hideSensitiveCover: hideSensitiveCovers,
+                                    allowsAdultContent: model.source(for: item.manga.sourceID)?.allowsAdultContent ?? false
+                                )
                                     .frame(width: 54, height: 74)
 
                                 VStack(alignment: .leading, spacing: 6) {
@@ -84,7 +79,7 @@ struct LibraryView: View {
                                         .foregroundStyle(.secondary)
                                     HStack(spacing: 8) {
                                         if let progress = item.progress {
-                                            Text(model.progressDisplayText(for: item.manga) ?? progress.chapterTitle ?? "Page \(progress.pageIndex + 1) of \(max(progress.totalPages, 1))")
+                                            Text("\(progress.chapterTitle ?? "Chapter") • Page \(progress.pageIndex + 1) of \(max(progress.totalPages, 1))")
                                                 .font(.caption)
                                                 .foregroundStyle(.secondary)
                                         }
@@ -100,6 +95,9 @@ struct LibraryView: View {
                             .padding(.vertical, 3)
                         }
                         .contextMenu {
+                            // Fix #4: Trigger a fullScreenCover (below) instead of
+                            // a NavigationDestination push. Context menus should
+                            // drive state/modals rather than directly navigating.
                             Button {
                                 if let chapter = model.startChapter(for: item.manga) {
                                     quickReadTarget = QuickReadTarget(manga: item.manga, chapter: chapter)
@@ -131,8 +129,31 @@ struct LibraryView: View {
         }
         .searchable(text: $searchText, prompt: "Search library")
         .navigationTitle("Library")
-        .navigationDestination(item: $quickReadTarget) { target in
-            ReaderView(manga: target.manga, initialChapter: target.chapter)
+        // Fix #3: Category filter moved out of the List and into a pinned
+        // horizontal pill row below the navigation bar, following modern iOS
+        // content-filter patterns (HIG: https://developer.apple.com/design/human-interface-guidelines).
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if !model.categories.isEmpty {
+                CategoryPillFilterView(
+                    categories: model.categories,
+                    selectedCategoryID: $selectedCategoryID
+                )
+            }
+        }
+        // Fix #4: Use fullScreenCover instead of navigationDestination to
+        // present the reader after a context-menu action, avoiding the
+        // jarring push animation glitch.
+        .fullScreenCover(item: $quickReadTarget) { target in
+            NavigationStack {
+                ReaderView(manga: target.manga, initialChapter: target.chapter)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button("Close", systemImage: "xmark") {
+                                quickReadTarget = nil
+                            }
+                        }
+                    }
+            }
         }
         .onAppear {
             sortMode = model.preferredLibrarySortMode()
@@ -171,5 +192,57 @@ struct LibraryView: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Category Pill Filter
+
+/// Fix #3: A horizontally scrollable row of pill-style filter buttons pinned
+/// just below the navigation bar. This pattern is recommended by Apple HIG for
+/// top-level content filtering — it's roomier than a segmented Picker inside a
+/// List and scales gracefully as the number of categories grows.
+private struct CategoryPillFilterView: View {
+    let categories: [Category]
+    @Binding var selectedCategoryID: String?
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                pillButton(label: "All", id: nil)
+                ForEach(categories) { category in
+                    pillButton(label: category.name, id: category.id)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+        }
+        .background(.bar)
+        .overlay(alignment: .bottom) {
+            Divider()
+        }
+    }
+
+    @ViewBuilder
+    private func pillButton(label: String, id: String?) -> some View {
+        let isSelected = selectedCategoryID == id
+        Button {
+            withAnimation(.easeInOut(duration: 0.18)) {
+                selectedCategoryID = id
+            }
+        } label: {
+            Text(label)
+                .font(.subheadline.weight(isSelected ? .semibold : .regular))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 6)
+                .background(
+                    isSelected
+                        ? AnyShapeStyle(Color.accentColor)
+                        : AnyShapeStyle(Color.secondary.opacity(0.15))
+                )
+                .foregroundStyle(isSelected ? Color.white : Color.primary)
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .animation(.easeInOut(duration: 0.18), value: isSelected)
     }
 }

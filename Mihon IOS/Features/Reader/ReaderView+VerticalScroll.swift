@@ -27,6 +27,8 @@ extension ReaderView {
 
     func updateVerticalPageIndex(from frames: [Int: CGRect], viewportHeight: CGFloat) {
         guard isVerticalReader, pageLoadState == .loaded, !frames.isEmpty else { return }
+        guard sliderActiveValue == nil else { return }
+        
         let viewport = CGRect(x: 0, y: 0, width: 1, height: viewportHeight)
         let visibleFrames = frames.filter { _, frame in
             !frame.intersection(viewport).isNull
@@ -51,6 +53,18 @@ extension ReaderView {
                firstFrame.minY >= viewportHeight - 1,
                pageIndex != 0 {
                 pageIndex = 0
+            }
+            return
+        }
+
+        // Safely pin to bottom if the final render item sits slightly above the lower edge.
+        let sortedVisible = visibleFrames.sorted { $0.key < $1.key }
+        if let last = sortedVisible.last,
+           last.key == verticalRenderItems.indices.last,
+           last.value.maxY <= viewportHeight + 5 {
+            let logicalIndex = boundedPageIndex(for: verticalRenderItems[last.key].logicalPageIndex)
+            if logicalIndex != pageIndex {
+                pageIndex = logicalIndex
             }
             return
         }

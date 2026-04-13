@@ -39,7 +39,8 @@ struct ReaderRenderData {
         pages: [ReaderPage],
         mode: ReaderMode,
         spreadBehavior: ReaderSpreadBehavior,
-        imageSizes: [String: CGSize]
+        imageSizes: [String: CGSize],
+        pagerViewportSize: CGSize? = nil
     ) -> ReaderRenderData {
         switch mode {
         case .pagerDefault, .pagerLTR, .pagerRTL:
@@ -47,7 +48,8 @@ struct ReaderRenderData {
                 pages: pages,
                 mode: mode,
                 spreadBehavior: spreadBehavior,
-                imageSizes: imageSizes
+                imageSizes: imageSizes,
+                pagerViewportSize: pagerViewportSize
             )
         case .vertical:
             let logicalPages = pages.enumerated().map { index, page in
@@ -55,7 +57,8 @@ struct ReaderRenderData {
                     id: "\(page.id)|full",
                     sourcePage: page,
                     sourcePageIndex: index,
-                    kind: .full
+                    anchorKey: "full",
+                    renderFragment: .full
                 )
             }
             let renderItems = logicalPages.enumerated().map { index, logicalPage in
@@ -78,49 +81,66 @@ struct ReaderRenderData {
         pages: [ReaderPage],
         mode: ReaderMode,
         spreadBehavior: ReaderSpreadBehavior,
-        imageSizes: [String: CGSize]
+        imageSizes: [String: CGSize],
+        pagerViewportSize: CGSize?
     ) -> ReaderRenderData {
-        let logicalPages = pages.enumerated().flatMap { index, page -> [ReaderLogicalPage] in
+        let pageGroups = pages.enumerated().flatMap { index, page -> [[ReaderLogicalPage]] in
             let shouldSplit = spreadBehavior == .autoSplit
                 && (imageSizes[page.id]?.shouldSplitForSpread ?? false)
-            guard shouldSplit else {
-                return [
-                    ReaderLogicalPage(
-                        id: "\(page.id)|full",
-                        sourcePage: page,
-                        sourcePageIndex: index,
-                        kind: .full
+            let baseFragments: [PagedFragmentDescriptor]
+            if shouldSplit {
+                baseFragments = [
+                    PagedFragmentDescriptor(
+                        idSuffix: "spread-left",
+                        anchorKey: "spread-left",
+                        renderFragment: .spreadHalf(.left),
+                        cropRect: ReaderSpreadHalf.left.unitRect
+                    ),
+                    PagedFragmentDescriptor(
+                        idSuffix: "spread-right",
+                        anchorKey: "spread-right",
+                        renderFragment: .spreadHalf(.right),
+                        cropRect: ReaderSpreadHalf.right.unitRect
+                    )
+                ]
+            } else {
+                baseFragments = [
+                    PagedFragmentDescriptor(
+                        idSuffix: "full",
+                        anchorKey: "full",
+                        renderFragment: .full,
+                        cropRect: CGRect(x: 0, y: 0, width: 1, height: 1)
                     )
                 ]
             }
-            return [
-                ReaderLogicalPage(
-                    id: "\(page.id)|spread-left",
-                    sourcePage: page,
+
+            return baseFragments.map { descriptor in
+                buildPagedLogicalPageGroup(
+                    page: page,
                     sourcePageIndex: index,
-                    kind: .spreadHalf(.left)
-                ),
-                ReaderLogicalPage(
-                    id: "\(page.id)|spread-right",
-                    sourcePage: page,
-                    sourcePageIndex: index,
-                    kind: .spreadHalf(.right)
+                    descriptor: descriptor,
+                    imageSize: imageSizes[page.id],
+                    pagerViewportSize: pagerViewportSize
                 )
-            ]
+            }
         }
 
-        let baseRenderItems = logicalPages.enumerated().map { index, logicalPage in
-            ReaderRenderItem(
-                id: logicalPage.id,
-                logicalPageID: logicalPage.id,
-                logicalPageIndex: index,
-                sourcePageIndex: logicalPage.sourcePageIndex,
-                page: logicalPage.sourcePage,
-                fragment: logicalPage.renderFragment
-            )
+        let logicalPages = pageGroups.flatMap { $0 }
+        let logicalIndexByID = Dictionary(uniqueKeysWithValues: logicalPages.enumerated().map { ($1.id, $0) })
+        let renderGroups = (mode == .pagerDefault || mode == .pagerRTL) ? Array(pageGroups.reversed()) : pageGroups
+        let renderItems = renderGroups.flatMap { group in
+            group.compactMap { logicalPage -> ReaderRenderItem? in
+                guard let logicalIndex = logicalIndexByID[logicalPage.id] else { return nil }
+                return ReaderRenderItem(
+                    id: logicalPage.id,
+                    logicalPageID: logicalPage.id,
+                    logicalPageIndex: logicalIndex,
+                    sourcePageIndex: logicalPage.sourcePageIndex,
+                    page: logicalPage.sourcePage,
+                    fragment: logicalPage.renderFragment
+                )
+            }
         }
-        let isRTLPager = mode == .pagerDefault || mode == .pagerRTL
-        let renderItems = isRTLPager ? Array(baseRenderItems.reversed()) : baseRenderItems
         return ReaderRenderData(logicalPages: logicalPages, renderItems: renderItems)
     }
 
@@ -133,7 +153,8 @@ struct ReaderRenderData {
                 id: "\(page.id)|full",
                 sourcePage: page,
                 sourcePageIndex: index,
-                kind: .full
+                anchorKey: "full",
+                renderFragment: .full
             )
         }
 
@@ -147,7 +168,7 @@ struct ReaderRenderData {
                     logicalPageIndex: logicalIndex,
                     sourcePageIndex: logicalPage.sourcePageIndex,
                     page: logicalPage.sourcePage,
-                    fragment: slices.count == 1 ? .full : .webtoonSlice(index: sliceIndex, total: slices.count, unitRect: rect)
+                    fragment: slices.count == 1 ? .full : .slice(index: sliceIndex, total: slices.count, unitRect: rect)
                 )
             }
         }
@@ -160,33 +181,11 @@ struct ReaderLogicalPage: Identifiable {
     let id: String
     let sourcePage: ReaderPage
     let sourcePageIndex: Int
-    let kind: ReaderLogicalPageKind
+    let anchorKey: String
+    let renderFragment: ReaderRenderFragment
 
     var anchor: ReaderLogicalAnchor {
-        ReaderLogicalAnchor(sourcePageID: sourcePage.id, kind: kind.anchorKey)
-    }
-
-    var renderFragment: ReaderRenderFragment {
-        switch kind {
-        case .full:
-            return .full
-        case .spreadHalf(let side):
-            return .spreadHalf(side)
-        }
-    }
-}
-
-enum ReaderLogicalPageKind {
-    case full
-    case spreadHalf(ReaderSpreadHalf)
-
-    var anchorKey: String {
-        switch self {
-        case .full:
-            return "full"
-        case .spreadHalf(let side):
-            return "spread-\(side.rawValue)"
-        }
+        ReaderLogicalAnchor(sourcePageID: sourcePage.id, kind: anchorKey)
     }
 }
 
@@ -207,7 +206,14 @@ struct ReaderRenderItem: Identifiable {
 enum ReaderRenderFragment {
     case full
     case spreadHalf(ReaderSpreadHalf)
-    case webtoonSlice(index: Int, total: Int, unitRect: CGRect)
+    case slice(index: Int, total: Int, unitRect: CGRect)
+}
+
+private struct PagedFragmentDescriptor {
+    let idSuffix: String
+    let anchorKey: String
+    let renderFragment: ReaderRenderFragment
+    let cropRect: CGRect
 }
 
 enum ReaderSpreadHalf: String {
@@ -256,6 +262,80 @@ extension CGSize {
         }
         let scale = min(boundingSize.width / width, boundingSize.height / height)
         return CGSize(width: width * scale, height: height * scale)
+    }
+
+    func applyingCrop(_ cropRect: CGRect) -> CGSize {
+        CGSize(width: width * cropRect.width, height: height * cropRect.height)
+    }
+}
+
+private extension ReaderRenderData {
+    static func buildPagedLogicalPageGroup(
+        page: ReaderPage,
+        sourcePageIndex: Int,
+        descriptor: PagedFragmentDescriptor,
+        imageSize: CGSize?,
+        pagerViewportSize: CGSize?
+    ) -> [ReaderLogicalPage] {
+        let sliceRects = pagedSliceUnitRects(
+            page: page,
+            imageSize: imageSize,
+            cropRect: descriptor.cropRect,
+            pagerViewportSize: pagerViewportSize
+        )
+        guard sliceRects.count > 1 else {
+            return [
+                ReaderLogicalPage(
+                    id: "\(page.id)|\(descriptor.idSuffix)",
+                    sourcePage: page,
+                    sourcePageIndex: sourcePageIndex,
+                    anchorKey: descriptor.anchorKey,
+                    renderFragment: descriptor.renderFragment
+                )
+            ]
+        }
+
+        return sliceRects.enumerated().map { index, rect in
+            ReaderLogicalPage(
+                id: "\(page.id)|\(descriptor.idSuffix)|slice-\(index)",
+                sourcePage: page,
+                sourcePageIndex: sourcePageIndex,
+                anchorKey: "\(descriptor.anchorKey)|slice-\(index)",
+                renderFragment: .slice(index: index, total: sliceRects.count, unitRect: rect)
+            )
+        }
+    }
+
+    static func pagedSliceUnitRects(
+        page: ReaderPage,
+        imageSize: CGSize?,
+        cropRect: CGRect,
+        pagerViewportSize: CGSize?
+    ) -> [CGRect] {
+        guard page.assetKind == .image else { return [cropRect] }
+        guard let imageSize, imageSize.width > 0, imageSize.height > 0 else { return [cropRect] }
+        guard let pagerViewportSize, pagerViewportSize.width > 0, pagerViewportSize.height > 0 else { return [cropRect] }
+
+        let croppedSize = imageSize.applyingCrop(cropRect)
+        guard croppedSize.width > 0, croppedSize.height > 0 else { return [cropRect] }
+
+        let fittedHeight = pagerViewportSize.width * (croppedSize.height / croppedSize.width)
+        guard fittedHeight > pagerViewportSize.height * 1.01 else { return [cropRect] }
+
+        let visibleNormalizedHeight = min(max(pagerViewportSize.height / fittedHeight, 0.01), 1)
+        let sliceCount = Int(ceil(1 / visibleNormalizedHeight))
+        guard sliceCount > 1 else { return [cropRect] }
+
+        return (0..<sliceCount).map { index in
+            let localOriginY = CGFloat(index) * visibleNormalizedHeight
+            let localHeight = index == sliceCount - 1 ? max(1 - localOriginY, 0) : visibleNormalizedHeight
+            return CGRect(
+                x: cropRect.minX,
+                y: cropRect.minY + cropRect.height * localOriginY,
+                width: cropRect.width,
+                height: cropRect.height * localHeight
+            )
+        }.filter { $0.width > 0 && $0.height > 0 }
     }
 }
 

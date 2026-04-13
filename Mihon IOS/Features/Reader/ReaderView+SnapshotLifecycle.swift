@@ -23,7 +23,8 @@ extension ReaderView {
                 pages: resolvedPages,
                 mode: resolvedMode,
                 spreadBehavior: model.state.readerPreferences.spreadBehavior,
-                imageSizes: resolvedImageSizes
+                imageSizes: resolvedImageSizes,
+                pagerViewportSize: pagerViewportSizeForRendering
             )
         )
     }
@@ -79,5 +80,10 @@ extension ReaderView {
         guard let committedSnapshot else { return false }
         guard committedSnapshot.chapterID == snapshot.chapterID else { return false }
         return readerInteractionPhase != .idle || transitionState != nil || isChapterTransitioning
+    }
+
+    var pagerViewportSizeForRendering: CGSize? {
+        guard exactPagerWidth > 0, exactPagerHeight > 0 else { return nil }
+        return CGSize(width: exactPagerWidth, height: exactPagerHeight)
     }
 }

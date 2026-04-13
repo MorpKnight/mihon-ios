@@ -35,12 +35,18 @@ struct MigrationSearchView: View {
     }
 
     var body: some View {
+        let hideSensitiveCovers = model.state.securityPreferences.hideSensitiveCovers
+
         List {
             ForEach(mangas) { manga in
                 NavigationLink {
                     MigrationConfirmationView(source: source, target: manga)
                 } label: {
-                    MangaRow(manga: manga)
+                    MangaRow(
+                        manga: manga,
+                        hideSensitiveCover: hideSensitiveCovers,
+                        allowsAdultContent: model.source(for: manga.sourceID)?.allowsAdultContent ?? false
+                    )
                 }
             }
         }
@@ -55,9 +61,15 @@ struct MigrationConfirmationView: View {
     let target: Manga
 
     var body: some View {
+        let hideSensitiveCovers = model.state.securityPreferences.hideSensitiveCovers
+
         List {
             Section("Target") {
-                MangaRow(manga: target)
+                MangaRow(
+                    manga: target,
+                    hideSensitiveCover: hideSensitiveCovers,
+                    allowsAdultContent: model.source(for: target.sourceID)?.allowsAdultContent ?? false
+                )
             }
 
             Section("Candidates") {

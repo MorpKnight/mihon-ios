@@ -7,10 +7,11 @@ import SwiftUI
 import UIKit
 
 struct ReaderPageSurface: View {
-    @EnvironmentObject private var model: AppModel
     let imagePipeline: ReaderImagePipelining
     let item: ReaderRenderItem
+    let localFileURL: URL?
     let filter: ReaderColorFilter
+    let imageSizingMode: ReaderPageSizingMode
     let fillViewport: Bool
     let allowsImagePan: Bool
     let allowsHighDetailAtRest: Bool
@@ -65,7 +66,7 @@ struct ReaderPageSurface: View {
                     colorTransform: ReaderColorTransform(filter: filter),
                     allowsZoom: allowsImagePan,
                     allowsDetailTiles: allowsImagePan || allowsHighDetailAtRest,
-                    sizingMode: fillViewport ? .fitWidth : .aspectFit,
+                    sizingMode: imageSizingMode,
                     retryToken: retryToken,
                     onSourceSizeResolved: { size in
                         resolvedSourcePixelSize = size
@@ -100,7 +101,7 @@ struct ReaderPageSurface: View {
                     }
                 )
                 .frame(maxWidth: .infinity, maxHeight: fillViewport ? .infinity : nil)
-                .aspectRatio(fillViewport ? nil : (resolvedDisplayAspectRatio ?? 0.72), contentMode: .fit)
+                .modifier(OptionalAspectRatio(aspectRatio: surfaceAspectRatio))
 
                 if let failureMessage = loadFailureMessage {
                     VStack(spacing: 14) {
@@ -135,7 +136,6 @@ struct ReaderPageSurface: View {
     }
 
     private var imageSource: ReaderImageAssetSource? {
-        let localFileURL = model.fileURL(for: item.page)
         let remoteURL = item.page.remoteURL.flatMap(URL.init(string:))
         guard localFileURL != nil || remoteURL != nil else { return nil }
         let sourceIdentity = localFileURL?.path ?? remoteURL?.absoluteString ?? item.page.id
@@ -152,7 +152,7 @@ struct ReaderPageSurface: View {
             return CGRect(x: 0, y: 0, width: 1, height: 1)
         case .spreadHalf(let side):
             return side.unitRect
-        case .webtoonSlice(_, _, let unitRect):
+        case .slice(_, _, let unitRect):
             return unitRect
         }
     }
@@ -163,6 +163,23 @@ struct ReaderPageSurface: View {
         let displayHeight = resolvedSourcePixelSize.height * normalizedCropRect.height
         guard displayWidth > 0, displayHeight > 0 else { return nil }
         return displayWidth / displayHeight
+    }
+
+    private var surfaceAspectRatio: CGFloat? {
+        guard !fillViewport else { return nil }
+        return resolvedDisplayAspectRatio ?? 0.72
+    }
+}
+
+fileprivate struct OptionalAspectRatio: ViewModifier {
+    let aspectRatio: CGFloat?
+
+    func body(content: Content) -> some View {
+        if let aspectRatio = aspectRatio {
+            content.aspectRatio(aspectRatio, contentMode: .fit)
+        } else {
+            content
+        }
     }
 }
 

@@ -6,7 +6,11 @@
 import SwiftUI
 import UIKit
 
+/// - Note: **DEPRECATED** (Fix #6) — RootTabView no longer uses this UIKit bridge.
+/// Pop-to-root on tab reselection is now handled natively via `.onChange(of: selectedTab)`.
+/// This file is kept for reference and can safely be deleted in a clean-up pass.
 /// Provides access to the hosting UITabBarController so we can detect re-taps on the active tab.
+
 struct TabBarControllerAccessor: UIViewControllerRepresentable {
     let onReselect: (Int) -> Void
 

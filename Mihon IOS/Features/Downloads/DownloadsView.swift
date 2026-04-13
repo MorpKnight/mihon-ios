@@ -71,6 +71,8 @@ private struct DownloadedTitlesListView: View {
     }
 
     var body: some View {
+        let hideSensitiveCovers = model.state.securityPreferences.hideSensitiveCovers
+
         List {
             if items.isEmpty {
                 ContentUnavailableView(
@@ -86,7 +88,11 @@ private struct DownloadedTitlesListView: View {
                             MangaDetailView(manga: item.manga)
                         } label: {
                             HStack(spacing: 14) {
-                                MangaCoverView(manga: item.manga)
+                                MangaCoverView(
+                                    manga: item.manga,
+                                    hideSensitiveCover: hideSensitiveCovers,
+                                    allowsAdultContent: model.source(for: item.manga.sourceID)?.allowsAdultContent ?? false
+                                )
                                     .frame(width: 54, height: 74)
 
                                 VStack(alignment: .leading, spacing: 6) {

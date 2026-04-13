@@ -72,32 +72,45 @@ struct ReaderTransitionPage: View {
 
     var body: some View {
         ZStack {
-            Color.black
-            VStack(spacing: 18) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 34, weight: .semibold))
+            Color.black.ignoresSafeArea()
+            VStack(spacing: 20) {
+                Image(systemName: isLoading ? "arrow.triangle.2.circlepath" : systemImage)
+                    .font(.system(size: 38, weight: .semibold))
                     .foregroundStyle(.white.opacity(isEnabled ? 0.9 : 0.35))
-                Text(title)
-                    .font(.headline)
-                    .foregroundStyle(.white.opacity(isEnabled ? 1 : 0.45))
-                Text(chapterTitle ?? "No chapter available")
-                    .font(.subheadline)
-                    .foregroundStyle(.white.opacity(isEnabled ? 0.72 : 0.3))
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 28)
+                    .rotationEffect(.degrees(isLoading ? 360 : 0))
+                    .animation(isLoading ? .linear(duration: 1).repeatForever(autoreverses: false) : .default, value: isLoading)
 
-                ProgressView(value: progress, total: 1)
-                    .tint(.white)
-                    .opacity(isEnabled ? 1 : 0.25)
-                    .frame(maxWidth: 220)
+                VStack(spacing: 6) {
+                    Text(title)
+                        .font(.headline)
+                        .foregroundStyle(.white.opacity(isEnabled ? 1 : 0.45))
+                    
+                    Text(chapterTitle ?? "No chapter available")
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(isEnabled ? 0.72 : 0.3))
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                }
+
+                if !isLoading {
+                    ProgressView(value: progress, total: 1)
+                        .tint(.white)
+                        .opacity(isEnabled ? 1 : 0.25)
+                        .frame(maxWidth: 180)
+                        .scaleEffect(x: 1, y: progress > 0 ? 1 : 0.1, anchor: .center)
+                }
 
                 Button(isLoading ? "Loading…" : confirmLabel, action: action)
                     .buttonStyle(.borderedProminent)
                     .disabled(!isEnabled || isLoading)
                     .tint(.white.opacity(isEnabled ? 0.18 : 0.08))
+                    .opacity(isEnabled ? 1 : 0)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding(.horizontal, 24)
+            .opacity(isEnabled ? 0.4 + (0.6 * Double(progress)) : 0.4)
+            .scaleEffect(isEnabled ? 0.95 + (0.05 * Double(progress)) : 0.95)
+            .animation(.interactiveSpring(response: 0.25, dampingFraction: 0.8, blendDuration: 0.1), value: progress)
         }
     }
 }

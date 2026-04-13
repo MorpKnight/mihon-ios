@@ -200,7 +200,10 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
     }
 
     var chromeTint: Color {
-        Color(hex: "#2F6BFF")
+        // Fix #7: Use the 'AppTint' colorset from Assets.xcassets so the colour
+        // adapts automatically to light/dark mode and high-contrast settings
+        // instead of being a static hardcoded hex value.
+        Color("AppTint")
     }
 
     private func seedInitialLibraryIfNeeded() {

@@ -10,6 +10,8 @@ struct HistoryView: View {
     @State private var searchText = ""
 
     var body: some View {
+        let entries = model.historyEntries(searchText: searchText)
+
         List {
             Section {
                 Button("Clear History", role: .destructive) {
@@ -17,7 +19,7 @@ struct HistoryView: View {
                 }
             }
 
-            if model.historyEntries(searchText: searchText).isEmpty {
+            if entries.isEmpty {
                 ContentUnavailableView(
                     "No history yet",
                     systemImage: "clock.arrow.circlepath",
@@ -25,7 +27,7 @@ struct HistoryView: View {
                 )
                 .padding(.vertical, 12)
             } else {
-                ForEach(model.historyEntries(searchText: searchText), id: \.0.id) { entry, manga, chapter in
+                ForEach(entries, id: \.0.id) { entry, manga, chapter in
                     NavigationLink {
                         ReaderView(manga: manga, initialChapter: chapter)
                     } label: {

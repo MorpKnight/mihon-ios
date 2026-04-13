@@ -44,12 +44,24 @@ extension AppModel {
     }
 
     var historyDisplayEntries: [(HistoryEntry, Manga, Chapter)] {
+        let mangaIndex = allMangaByID()
+        var chaptersByMangaID: [String: [Chapter]] = [:]
+
+        func chaptersForManga(_ manga: Manga) -> [Chapter] {
+            if let cached = chaptersByMangaID[manga.id] {
+                return cached
+            }
+            let resolved = chapters(for: manga)
+            chaptersByMangaID[manga.id] = resolved
+            return resolved
+        }
+
         state.history
             .sorted { $0.timestamp > $1.timestamp }
             .compactMap { entry in
                 guard
-                    let manga = allManga.first(where: { $0.id == entry.mangaID }),
-                    let chapter = chapters(for: manga).first(where: { $0.id == entry.chapterID })
+                    let manga = mangaIndex[entry.mangaID],
+                    let chapter = chaptersForManga(manga).first(where: { $0.id == entry.chapterID })
                 else { return nil }
                 return (entry, manga, chapter)
             }
@@ -82,6 +94,7 @@ extension AppModel {
     }
 
     var updateFeed: [UpdateFeedItem] {
+        let trackedMangaIDs = Set(state.trackers.map(\.mangaID))
         libraryItems(selectedCategoryID: nil)
             .compactMap { item in
                 guard let chapter = item.latestChapter else { return nil }
@@ -90,7 +103,7 @@ extension AppModel {
                     mangaID: item.manga.id,
                     chapterID: chapter.id,
                     sourceID: item.manga.sourceID,
-                    isBookmarked: trackerBindings(for: item.manga).isEmpty == false
+                    isBookmarked: trackedMangaIDs.contains(item.manga.id)
                 )
                 return UpdateFeedItem(id: entry.id, manga: item.manga, chapter: chapter, entry: entry)
             }

@@ -11,11 +11,24 @@ extension AppModel {
     }
 
     var visibleSources: [Source] {
+        let preferredLanguageCodes = defaultCatalogLanguageCodes()
+        let hideAdultSources = state.browsePreferences.hideAdultSources
+        let enabledSourcesOnly = state.browsePreferences.enabledSourcesOnly
+        let pinnedSourcesOnly = state.browsePreferences.pinnedSourcesOnly
+        let enabledLanguages = state.browsePreferences.enabledLanguages
+
         sources.filter { source in
-            sourceMatchesBrowseLanguagePreferences(source) &&
-            (!state.browsePreferences.hideAdultSources || !source.allowsAdultContent) &&
-            (!state.browsePreferences.enabledSourcesOnly || source.isEnabled) &&
-            (!state.browsePreferences.pinnedSourcesOnly || source.isPinned)
+            let matchesLanguage: Bool
+            if let code = descriptor(for: source.id)?.languageCode {
+                matchesLanguage = preferredLanguageCodes.contains(normalizeLanguageCode(code))
+            } else {
+                matchesLanguage = enabledLanguages.contains(source.language)
+            }
+
+            return matchesLanguage &&
+            (!hideAdultSources || !source.allowsAdultContent) &&
+            (!enabledSourcesOnly || source.isEnabled) &&
+            (!pinnedSourcesOnly || source.isPinned)
         }
     }
 
@@ -256,12 +269,14 @@ extension AppModel {
     }
 
     func globalSearchResults(query: String) -> [(Source, [Manga])] {
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedQuery.isEmpty else { return [] }
+
         visibleSources.compactMap { source in
             let results = mangas(for: source).filter {
-                query.isEmpty ||
-                $0.title.localizedCaseInsensitiveContains(query) ||
-                $0.author.localizedCaseInsensitiveContains(query) ||
-                $0.genres.joined(separator: " ").localizedCaseInsensitiveContains(query)
+                $0.title.localizedCaseInsensitiveContains(trimmedQuery) ||
+                $0.author.localizedCaseInsensitiveContains(trimmedQuery) ||
+                $0.genres.joined(separator: " ").localizedCaseInsensitiveContains(trimmedQuery)
             }
             return results.isEmpty ? nil : (source, results)
         }
@@ -350,4 +365,3 @@ extension AppModel {
         }
     }
 }
-
