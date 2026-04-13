@@ -6,7 +6,7 @@
 import CoreImage
 import UIKit
 
-protocol ReaderImagePipelining: Sendable {
+protocol ReaderImagePipelining: Actor, Sendable {
     func previewImage(
         for source: ReaderImageAssetSource,
         variantKey: String,
@@ -31,7 +31,7 @@ protocol ReaderImagePipelining: Sendable {
         lookahead: Int
     ) async
 
-    func cancelWindow(for chapterID: String?)
+    func cancelWindow(for chapterID: String?) async
 }
 
 actor ReaderImagePipeline: ReaderImagePipelining {
@@ -190,7 +190,7 @@ actor ReaderImagePipeline: ReaderImagePipelining {
         await cache.clear(.image)
     }
 
-    func cancelWindow(for chapterID: String? = nil) {
+    func cancelWindow(for chapterID: String? = nil) async {
         guard chapterID == nil || chapterID == activeWindowChapterID else { return }
         cancelPrefetchTasks()
         activeWindowChapterID = nil

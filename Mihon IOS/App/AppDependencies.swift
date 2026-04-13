@@ -7,6 +7,7 @@ import Foundation
 
 /// Lightweight dependency container used to assemble `AppModel`.
 /// Keeps composition in one place and makes future test wiring simpler.
+@MainActor
 struct AppDependencies {
     var store: AppStateStore
     var repository: SourceRepository?

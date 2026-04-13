@@ -56,9 +56,9 @@ extension AppModel {
             return resolved
         }
 
-        state.history
+        return state.history
             .sorted { $0.timestamp > $1.timestamp }
-            .compactMap { entry in
+            .compactMap { entry -> (HistoryEntry, Manga, Chapter)? in
                 guard
                     let manga = mangaIndex[entry.mangaID],
                     let chapter = chaptersForManga(manga).first(where: { $0.id == entry.chapterID })
@@ -95,8 +95,8 @@ extension AppModel {
 
     var updateFeed: [UpdateFeedItem] {
         let trackedMangaIDs = Set(state.trackers.map(\.mangaID))
-        libraryItems(selectedCategoryID: nil)
-            .compactMap { item in
+        return libraryItems(selectedCategoryID: nil)
+            .compactMap { item -> UpdateFeedItem? in
                 guard let chapter = item.latestChapter else { return nil }
                 let entry = UpdateEntry(
                     id: "\(item.manga.id)-\(chapter.id)",
@@ -107,7 +107,9 @@ extension AppModel {
                 )
                 return UpdateFeedItem(id: entry.id, manga: item.manga, chapter: chapter, entry: entry)
             }
-            .sorted { $0.chapter.releaseDate > $1.chapter.releaseDate }
+            .sorted { (lhs: UpdateFeedItem, rhs: UpdateFeedItem) in
+                lhs.chapter.releaseDate > rhs.chapter.releaseDate
+            }
     }
 
     func updateFeed(searchText: String, downloadedOnly: Bool) -> [UpdateFeedItem] {

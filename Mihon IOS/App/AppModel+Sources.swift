@@ -17,7 +17,7 @@ extension AppModel {
         let pinnedSourcesOnly = state.browsePreferences.pinnedSourcesOnly
         let enabledLanguages = state.browsePreferences.enabledLanguages
 
-        sources.filter { source in
+        return sources.filter { source in
             let matchesLanguage: Bool
             if let code = descriptor(for: source.id)?.languageCode {
                 matchesLanguage = preferredLanguageCodes.contains(normalizeLanguageCode(code))
@@ -272,7 +272,7 @@ extension AppModel {
         let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedQuery.isEmpty else { return [] }
 
-        visibleSources.compactMap { source in
+        return visibleSources.compactMap { source in
             let results = mangas(for: source).filter {
                 $0.title.localizedCaseInsensitiveContains(trimmedQuery) ||
                 $0.author.localizedCaseInsensitiveContains(trimmedQuery) ||

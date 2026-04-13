@@ -48,6 +48,10 @@ struct ReaderView: View {
     private let verticalScrollCoordinateSpace = "reader.vertical.scroll"
     static let chapterEndPageTarget = Int.max
 
+    private var colorFilter: ReaderColorFilter {
+        model.state.readerPreferences.colorFilter
+    }
+
     init(
         manga: Manga,
         initialChapter: Chapter,
@@ -163,8 +167,6 @@ struct ReaderView: View {
 
     @ViewBuilder
     private func readerBody(in rootSize: CGSize) -> some View {
-        let colorFilter = model.state.readerPreferences.colorFilter
-
         if pageLoadState == .loading && currentPages.isEmpty {
             ProgressView("Loading chapter…")
                 .tint(.white)
