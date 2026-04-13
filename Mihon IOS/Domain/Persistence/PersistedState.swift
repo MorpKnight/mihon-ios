@@ -38,6 +38,7 @@ struct PersistedState: Codable, Hashable {
         updatesLastSeenChapterIDByMangaID: [:],
         readerPreferences: ReaderPreferences(
             mode: .pagerDefault,
+            spreadBehavior: .fullPage,
             keepAwake: true,
             orientation: .system,
             showPageNumber: true,
@@ -81,8 +82,8 @@ struct PersistedState: Codable, Hashable {
             historyLimit: 80,
             showDiagnostics: false,
             aggressiveImageRetry: true,
-            memoryCacheLimitMB: 80,
-            imageCacheCountLimit: 100
+            memoryCacheLimitMB: AdvancedPreferences.recommendedMemoryCacheLimitMB,
+            imageCacheCountLimit: AdvancedPreferences.recommendedImageCacheCountLimit
         ),
         trackers: [],
         mangaNotes: [:],

@@ -126,17 +126,27 @@ struct LibraryBatchMigrationView: View {
     @EnvironmentObject private var model: AppModel
 
     var body: some View {
+        let hideSensitiveCovers = model.state.securityPreferences.hideSensitiveCovers
+
         List {
             ForEach(model.libraryItems(selectedCategoryID: nil)) { item in
                 if let source = model.migrationSource(for: item.manga) {
                     NavigationLink {
                         MigrationConfirmationView(source: source, target: item.manga)
                     } label: {
-                        MangaRow(manga: item.manga)
+                        MangaRow(
+                            manga: item.manga,
+                            hideSensitiveCover: hideSensitiveCovers,
+                            allowsAdultContent: model.source(for: item.manga.sourceID)?.allowsAdultContent ?? false
+                        )
                     }
                 } else {
                     VStack(alignment: .leading, spacing: 6) {
-                        MangaRow(manga: item.manga)
+                        MangaRow(
+                            manga: item.manga,
+                            hideSensitiveCover: hideSensitiveCovers,
+                            allowsAdultContent: model.source(for: item.manga.sourceID)?.allowsAdultContent ?? false
+                        )
                         Text("Migration unavailable because the source could not be resolved.")
                             .font(.caption)
                             .foregroundStyle(.secondary)

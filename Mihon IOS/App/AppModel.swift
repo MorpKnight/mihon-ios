@@ -17,6 +17,8 @@ enum BootState: Equatable {
 @MainActor
 final class AppModel: ObservableObject, LibraryRepository, ReaderProgressRepository, DownloadRepository, TrackingRepository, BackupRepository, SettingsRepository, MigrationRepository {
     static let biometricLockFeatureEnabled = true
+    private static let diagnosticRedactedValue = "[REDACTED]"
+    private static let diagnosticDedupWindowSeconds: TimeInterval = 8
 
     @Published internal(set) var state: PersistedState
     @Published internal(set) var sources: [Source]
@@ -128,9 +130,9 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
         self.sourceGenreCache = [:]
         self.chapterCache = chapterRuntimeCache.snapshot()
         self.pageCache = pageRuntimeCache.snapshot()
-        self.sourceErrors = [:]
-        self.pageLoadErrors = [:]
-        self.diagnosticLogs = snapshot.diagnostics
+        self.sourceErrors = snapshot.sourceErrors
+        self.pageLoadErrors = snapshot.pageLoadErrors
+        self.diagnosticLogs = Self.normalizedDiagnostics(snapshot.diagnostics)
         self.repoImportErrorMessage = nil
         self.importingRepoURL = nil
         self.sources = self.repository.sources()
@@ -198,7 +200,10 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
     }
 
     var chromeTint: Color {
-        Color(hex: "#2F6BFF")
+        // Fix #7: Use the 'AppTint' colorset from Assets.xcassets so the colour
+        // adapts automatically to light/dark mode and high-contrast settings
+        // instead of being a static hardcoded hex value.
+        Color("AppTint")
     }
 
     private func seedInitialLibraryIfNeeded() {
@@ -208,12 +213,15 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
     func persist() {
         state.schemaVersion = PersistedState.currentSchemaVersion
         state.sourceRepos = repoRecords.map(\.url)
+        diagnosticLogs = Self.normalizedDiagnostics(diagnosticLogs)
         let snapshot = DatabaseSnapshot(
             state: state,
             imports: importRecords,
             importJobs: importJobsState,
             repoRecords: repoRecords,
             diagnostics: diagnosticLogs,
+            sourceErrors: sourceErrors,
+            pageLoadErrors: pageLoadErrors,
             downloadedChapters: persistedDownloadedChapters()
         )
         databaseCoordinator.saveSnapshot(snapshot)
@@ -225,19 +233,66 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
         sources = repository.sources()
     }
 
-    func appendDiagnostic(kind: DiagnosticLogKind, title: String, message: String, metadata: [String: String]) {
+    func appendDiagnostic(
+        kind: DiagnosticLogKind,
+        severity: DiagnosticSeverity = .error,
+        title: String,
+        message: String,
+        errorCode: String? = nil,
+        module: String? = nil,
+        resolutionHint: String? = nil,
+        metadata: [String: String] = [:]
+    ) {
+        let now = Date()
+        let redactedMetadata = Self.redactedDiagnosticMetadata(metadata)
+
+        if let first = diagnosticLogs.first,
+           Self.shouldCoalesce(
+               existing: first,
+               kind: kind,
+               severity: severity,
+               title: title,
+               message: message,
+               errorCode: errorCode,
+               module: module,
+               at: now
+           ) {
+            let existingCount = Int(first.metadata["occurrences"] ?? "1") ?? 1
+            var mergedMetadata = first.metadata
+            mergedMetadata["occurrences"] = "\(existingCount + 1)"
+
+            diagnosticLogs[0] = DiagnosticLogEntry(
+                id: first.id,
+                timestamp: now,
+                kind: first.kind,
+                severity: first.severity,
+                title: first.title,
+                message: first.message,
+                errorCode: first.errorCode,
+                module: first.module,
+                resolutionHint: first.resolutionHint,
+                metadata: mergedMetadata
+            )
+            diagnosticLogs = Self.normalizedDiagnostics(diagnosticLogs)
+            return
+        }
+
         diagnosticLogs.insert(
             DiagnosticLogEntry(
                 id: UUID(),
-                timestamp: .now,
+                timestamp: now,
                 kind: kind,
+                severity: severity,
                 title: title,
                 message: message,
-                metadata: metadata
+                errorCode: errorCode,
+                module: module,
+                resolutionHint: resolutionHint,
+                metadata: redactedMetadata
             ),
             at: 0
         )
-        diagnosticLogs = Array(diagnosticLogs.prefix(200))
+        diagnosticLogs = Self.normalizedDiagnostics(diagnosticLogs)
     }
 
     func refreshCacheStats() async {
@@ -290,7 +345,7 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
     }
 
     func setCachedChapters(_ chapters: [Chapter], for mangaID: String) {
-        chapterRuntimeCache.setValue(chapters, forKey: mangaID)
+        chapterRuntimeCache.setValue(normalizedChapters(chapters), forKey: mangaID)
         chapterCache = chapterRuntimeCache.snapshot()
     }
 
@@ -366,6 +421,63 @@ final class AppModel: ObservableObject, LibraryRepository, ReaderProgressReposit
         sourceGenreCache = sourceGenreRuntimeCache.snapshot()
         chapterCache = chapterRuntimeCache.snapshot()
         pageCache = pageRuntimeCache.snapshot()
+    }
+
+    private static func normalizedDiagnostics(_ logs: [DiagnosticLogEntry]) -> [DiagnosticLogEntry] {
+        let retentionCutoff = Calendar.current.date(byAdding: .day, value: -DatabaseSnapshot.diagnosticsRetentionDays, to: .now) ?? .distantPast
+        let filtered = logs
+            .filter { $0.timestamp >= retentionCutoff }
+            .sorted { $0.timestamp > $1.timestamp }
+        return Array(filtered.prefix(DatabaseSnapshot.diagnosticsMaxEntries))
+    }
+
+    private static func redactedDiagnosticMetadata(_ metadata: [String: String]) -> [String: String] {
+        guard !metadata.isEmpty else { return [:] }
+
+        let forbiddenKeyFragments = [
+            "url", "uri", "path", "token", "authorization", "auth", "cookie", "header", "id"
+        ]
+
+        let forbiddenValueFragments = ["http://", "https://", "bearer ", "token", "authorization", "cookie"]
+
+        var sanitized: [String: String] = [:]
+        for (key, value) in metadata {
+            let normalizedKey = key.lowercased()
+            if forbiddenKeyFragments.contains(where: { normalizedKey.contains($0) }) {
+                continue
+            }
+
+            let normalizedValue = value.lowercased()
+            if forbiddenValueFragments.contains(where: { normalizedValue.contains($0) }) {
+                sanitized[key] = diagnosticRedactedValue
+                continue
+            }
+
+            sanitized[key] = value
+        }
+
+        return sanitized
+    }
+
+    private static func shouldCoalesce(
+        existing: DiagnosticLogEntry,
+        kind: DiagnosticLogKind,
+        severity: DiagnosticSeverity,
+        title: String,
+        message: String,
+        errorCode: String?,
+        module: String?,
+        at timestamp: Date
+    ) -> Bool {
+        guard existing.kind == kind,
+              existing.severity == severity,
+              existing.title == title,
+              existing.message == message,
+              existing.errorCode == errorCode,
+              existing.module == module else {
+            return false
+        }
+        return timestamp.timeIntervalSince(existing.timestamp) <= diagnosticDedupWindowSeconds
     }
 
     private func persistedDownloadedChapters() -> [String: [Chapter]] {

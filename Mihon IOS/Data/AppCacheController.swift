@@ -408,10 +408,18 @@ actor AppCacheController: AppCacheManaging {
         switch intent {
         case .thumbnail:
             return downsampledImage(data: data, maxPixelSize: 1_200)
+                ?? downsampledImage(data: data, maxPixelSize: 800)
+                ?? fullQualityImage(data: data)
+                ?? UIImage(data: data)
         case .readerPreview:
             return downsampledImage(data: data, maxPixelSize: 2_800)
+                ?? downsampledImage(data: data, maxPixelSize: 1_600)
+                ?? fullQualityImage(data: data)
+                ?? UIImage(data: data)
         case .readerFullQuality:
             return fullQualityImage(data: data)
+                ?? downsampledImage(data: data, maxPixelSize: 3_600)
+                ?? UIImage(data: data)
         }
     }
 
@@ -449,16 +457,30 @@ actor AppCacheController: AppCacheManaging {
 
     private static func croppedDownsampledImage(data: Data, normalizedCropRect: CGRect, targetPixelSize: CGSize) -> UIImage? {
         let normalizedRect = normalizedCropRect.standardized.clampedToUnitRect
-        let options = [kCGImageSourceShouldCache: false] as CFDictionary
-        guard let source = CGImageSourceCreateWithData(data as CFData, options) else { return nil }
-
-        let previewMaxPixel = max(
+        let basePreviewMaxPixel = max(
             targetPixelSize.width / max(normalizedRect.width, 0.01),
             targetPixelSize.height / max(normalizedRect.height, 0.01)
         )
+
+        let passes = [basePreviewMaxPixel, basePreviewMaxPixel * 0.7, basePreviewMaxPixel * 0.45]
+        for passMaxPixel in passes {
+            if let image = croppedDownsampledImage(data: data, normalizedRect: normalizedRect, previewMaxPixel: max(passMaxPixel, 1)) {
+                return image
+            }
+        }
+
+        if let full = fullQualityImage(data: data) {
+            return full.cropped(unitRect: normalizedRect) ?? full
+        }
+        return UIImage(data: data)?.cropped(unitRect: normalizedRect)
+    }
+
+    private static func croppedDownsampledImage(data: Data, normalizedRect: CGRect, previewMaxPixel: CGFloat) -> UIImage? {
+        let options = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let source = CGImageSourceCreateWithData(data as CFData, options) else { return nil }
         let thumbnailOptions = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceThumbnailMaxPixelSize: max(previewMaxPixel, 1),
+            kCGImageSourceThumbnailMaxPixelSize: previewMaxPixel,
             kCGImageSourceCreateThumbnailWithTransform: true,
         ] as CFDictionary
 

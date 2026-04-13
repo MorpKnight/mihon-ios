@@ -17,15 +17,58 @@ struct CacheConfiguration: Codable, Hashable {
     var diskMetadataBytesLimit: Int
     var diskNetworkBytesLimit: Int
 
-    static let `default` = CacheConfiguration(
-        imageCountLimit: 100,
-        imageBytesLimit: 80 * 1_024 * 1_024,
-        dataCountLimit: 200,
-        dataBytesLimit: 40 * 1_024 * 1_024,
-        diskImageBytesLimit: 200 * 1_024 * 1_024,
-        diskMetadataBytesLimit: 32 * 1_024 * 1_024,
-        diskNetworkBytesLimit: 80 * 1_024 * 1_024
-    )
+    static var `default`: CacheConfiguration {
+        switch deviceMemoryClass {
+        case .low:
+            return CacheConfiguration(
+                imageCountLimit: 80,
+                imageBytesLimit: 64 * 1_024 * 1_024,
+                dataCountLimit: 160,
+                dataBytesLimit: 32 * 1_024 * 1_024,
+                diskImageBytesLimit: 180 * 1_024 * 1_024,
+                diskMetadataBytesLimit: 24 * 1_024 * 1_024,
+                diskNetworkBytesLimit: 64 * 1_024 * 1_024
+            )
+        case .medium:
+            return CacheConfiguration(
+                imageCountLimit: 120,
+                imageBytesLimit: 96 * 1_024 * 1_024,
+                dataCountLimit: 220,
+                dataBytesLimit: 48 * 1_024 * 1_024,
+                diskImageBytesLimit: 220 * 1_024 * 1_024,
+                diskMetadataBytesLimit: 32 * 1_024 * 1_024,
+                diskNetworkBytesLimit: 96 * 1_024 * 1_024
+            )
+        case .high:
+            return CacheConfiguration(
+                imageCountLimit: 180,
+                imageBytesLimit: 144 * 1_024 * 1_024,
+                dataCountLimit: 280,
+                dataBytesLimit: 72 * 1_024 * 1_024,
+                diskImageBytesLimit: 280 * 1_024 * 1_024,
+                diskMetadataBytesLimit: 40 * 1_024 * 1_024,
+                diskNetworkBytesLimit: 120 * 1_024 * 1_024
+            )
+        }
+    }
+
+    private enum DeviceMemoryClass {
+        case low
+        case medium
+        case high
+    }
+
+    private static var deviceMemoryClass: DeviceMemoryClass {
+        let totalBytes = ProcessInfo.processInfo.physicalMemory
+        let totalGB = Double(totalBytes) / Double(1_073_741_824)
+        if totalGB < 4 {
+            return .low
+        }
+        if totalGB < 7 {
+            return .medium
+        }
+        return .high
+    }
 }
 
 // MARK: - LRU Memory Cache

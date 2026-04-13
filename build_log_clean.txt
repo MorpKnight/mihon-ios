@@ -1,0 +1,1178 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild clean build -scheme "Mihon IOS" -configuration Debug -destination "platform=iOS Simulator,name=iPhone 17,OS=26.4"
+
+2026-04-11 15:58:07.907 xcodebuild[32631:8596150] [MT] IDERunDestination: Supported platforms for the buildables in the current scheme is empty.
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+** CLEAN SUCCEEDED **
+
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (1 target)
+    Target 'Mihon IOS' in project 'Mihon IOS' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.4.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --print-asset-tag-combinations --output-format xml1 /Users/giovan/Programming/Mihon IOS/Mihon IOS/Assets.xcassets
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --version --output-format xml1
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+Build description signature: 405ffed1cdbf0ca03a8f79d6757bfeb3
+Build description path: /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/XCBuildData/405ffed1cdbf0ca03a8f79d6757bfeb3.xcbuilddata
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.4.sdk /Users/giovan/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphonesimulator26.4-23E237-686eebb5dc1d8ecb277353a59184f4aa.sdkstatcache
+    cd /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.4.sdk -o /Users/giovan/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphonesimulator26.4-23E237-686eebb5dc1d8ecb277353a59184f4aa.sdkstatcache
+
+CreateBuildDirectory /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products
+    cd /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS.xcodeproj
+    builtin-create-build-directory /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products
+
+CreateBuildDirectory /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex
+    cd /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS.xcodeproj
+    builtin-create-build-directory /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex
+
+CreateBuildDirectory /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+    cd /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS.xcodeproj
+    builtin-create-build-directory /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+
+CreateBuildDirectory /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/ExplicitPrecompiledModules
+    cd /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS.xcodeproj
+    builtin-create-build-directory /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/ExplicitPrecompiledModules
+
+CreateBuildDirectory /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator
+    cd /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS.xcodeproj
+    builtin-create-build-directory /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator
+
+WriteAuxiliaryFile /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS-5a697414afc8774d38965c988c1df662-VFS-iphonesimulator/all-product-headers.yaml
+    cd /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS.xcodeproj
+    write-file /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS-5a697414afc8774d38965c988c1df662-VFS-iphonesimulator/all-product-headers.yaml
+
+CreateBuildDirectory /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator
+    cd /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS.xcodeproj
+    builtin-create-build-directory /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator
+
+WriteAuxiliaryFile /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS.hmap (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    write-file /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS.hmap
+
+WriteAuxiliaryFile /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS.DependencyStaticMetadataFileList (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    write-file /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS.DependencyStaticMetadataFileList
+
+WriteAuxiliaryFile /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/empty-Mihon\ IOS.plist (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    write-file /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/empty-Mihon\ IOS.plist
+
+WriteAuxiliaryFile /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS.DependencyMetadataFileList (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    write-file /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS.DependencyMetadataFileList
+
+WriteAuxiliaryFile /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon\ IOS.SwiftFileList (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    write-file /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon\ IOS.SwiftFileList
+
+WriteAuxiliaryFile /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon\ IOS.LinkFileList (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    write-file /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon\ IOS.LinkFileList
+
+WriteAuxiliaryFile /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon\ IOS.SwiftConstValuesFileList (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    write-file /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon\ IOS.SwiftConstValuesFileList
+
+WriteAuxiliaryFile /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon\ IOS-OutputFileMap.json (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    write-file /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon\ IOS-OutputFileMap.json
+
+WriteAuxiliaryFile /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon\ IOS_const_extract_protocols.json (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    write-file /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon\ IOS_const_extract_protocols.json
+
+WriteAuxiliaryFile /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS-project-headers.hmap (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    write-file /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS-project-headers.hmap
+
+WriteAuxiliaryFile /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS-own-target-headers.hmap (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    write-file /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS-own-target-headers.hmap
+
+WriteAuxiliaryFile /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS-generated-files.hmap (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    write-file /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS-generated-files.hmap
+
+WriteAuxiliaryFile /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS-all-target-headers.hmap (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    write-file /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS-all-target-headers.hmap
+
+WriteAuxiliaryFile /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS-all-non-framework-target-headers.hmap (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    write-file /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS-all-non-framework-target-headers.hmap
+
+WriteAuxiliaryFile /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS-DebugDylibPath-normal-arm64.txt (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    write-file /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS-DebugDylibPath-normal-arm64.txt
+
+WriteAuxiliaryFile /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS-DebugDylibInstallName-normal-arm64.txt (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    write-file /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS-DebugDylibInstallName-normal-arm64.txt
+
+MkDir /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    /bin/mkdir -p /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app
+
+WriteAuxiliaryFile /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/DerivedSources/Entitlements-Simulated.plist (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    write-file /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/DerivedSources/Entitlements-Simulated.plist
+
+ProcessProductPackaging "" /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS.app-Simulated.xcent (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+    Entitlements:
+    
+    {
+    "application-identifier" = "DP5XP7C2AM.giovanchristoffel.Mihon-IOS";
+}
+    
+    builtin-productPackagingUtility -entitlements -format xml -o /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS.app-Simulated.xcent
+
+ProcessProductPackagingDER /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS.app-Simulated.xcent /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS.app-Simulated.xcent.der (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    /usr/bin/derq query -f xml -i /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS.app-Simulated.xcent -o /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS.app-Simulated.xcent.der --raw
+
+Ld /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app/__preview.dylib normal (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios26.2-simulator -dynamiclib -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.4.sdk -O0 -L/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator -F/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator -install_name @rpath/Mihon\ IOS.debug.dylib -Xlinker -dead_strip -rdynamic -Xlinker -no_deduplicate -Xlinker -objc_abi_version -Xlinker 2 -Xlinker -dependency_info -Xlinker /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon\ IOS_dependency_info.dat -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __entitlements -Xlinker /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS.app-Simulated.xcent -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __ents_der -Xlinker /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS.app-Simulated.xcent.der -Xlinker -no_adhoc_codesign -o /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app/__preview.dylib
+
+GenerateAssetSymbols /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Assets.xcassets (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    /Applications/Xcode.app/Contents/Developer/usr/bin/actool /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Assets.xcassets --compile /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app --output-format human-readable-text --notices --warnings --export-dependency-info /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/assetcatalog_dependencies --output-partial-info-plist /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/assetcatalog_generated_info.plist --app-icon AppIcon --accent-color AccentColor --compress-pngs --enable-on-demand-resources YES --development-region en --target-device iphone --target-device ipad --minimum-deployment-target 26.2 --platform iphonesimulator --bundle-identifier giovanchristoffel.Mihon-IOS --generate-swift-asset-symbols /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/DerivedSources/GeneratedAssetSymbols.swift --generate-objc-asset-symbols /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/DerivedSources/GeneratedAssetSymbols.h --generate-asset-symbol-index /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/DerivedSources/GeneratedAssetSymbols-Index.plist
+/* com.apple.actool.compilation-results */
+/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon IOS.build/Debug-iphonesimulator/Mihon IOS.build/DerivedSources/GeneratedAssetSymbols-Index.plist
+/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon IOS.build/Debug-iphonesimulator/Mihon IOS.build/DerivedSources/GeneratedAssetSymbols.h
+/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon IOS.build/Debug-iphonesimulator/Mihon IOS.build/DerivedSources/GeneratedAssetSymbols.swift
+
+
+MkDir /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/assetcatalog_output/unthinned (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    /bin/mkdir -p /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/assetcatalog_output/unthinned
+
+MkDir /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/assetcatalog_output/thinned (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    /bin/mkdir -p /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/assetcatalog_output/thinned
+
+CompileAssetCatalogVariant thinned /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Assets.xcassets (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    /Applications/Xcode.app/Contents/Developer/usr/bin/actool /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Assets.xcassets --compile /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/assetcatalog_output/thinned --output-format human-readable-text --notices --warnings --export-dependency-info /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/assetcatalog_dependencies_thinned --output-partial-info-plist /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/assetcatalog_generated_info.plist_thinned --app-icon AppIcon --accent-color AccentColor --compress-pngs --enable-on-demand-resources YES --filter-for-thinning-device-configuration iPhone18,3 --filter-for-device-os-version 26.4 --development-region en --target-device iphone --target-device ipad --minimum-deployment-target 26.2 --platform iphonesimulator
+/* com.apple.actool.compilation-results */
+/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon IOS.build/Debug-iphonesimulator/Mihon IOS.build/assetcatalog_generated_info.plist_thinned
+
+
+SwiftDriver Mihon\ IOS normal arm64 com.apple.xcode.tools.swift.compiler (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name Mihon_IOS -Onone @/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon\ IOS.SwiftFileList -DDEBUG -default-isolation\=MainActor -enable-bare-slash-regex -enable-upcoming-feature DisableOutwardActorInference -enable-upcoming-feature InferSendableFromCaptures -enable-upcoming-feature GlobalActorIsolatedTypesUsability -enable-upcoming-feature MemberImportVisibility -enable-upcoming-feature InferIsolatedConformances -enable-upcoming-feature NonisolatedNonsendingByDefault -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.4.sdk -target arm64-apple-ios26.2-simulator -g -module-cache-path /Users/giovan/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 5 -I /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator -F /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator -emit-localized-strings -emit-localized-strings-path /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64 -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/giovan/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphonesimulator26.4-23E237-686eebb5dc1d8ecb277353a59184f4aa.sdkstatcache -output-file-map /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon\ IOS-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/giovan/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -sdk-module-cache-path /Users/giovan/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon_IOS.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/giovan/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon\ IOS_const_extract_protocols.json -Xcc -iquote -Xcc /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS-generated-files.hmap -Xcc -I/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS-own-target-headers.hmap -Xcc -I/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS-all-target-headers.hmap -Xcc -iquote -Xcc /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS-project-headers.hmap -Xcc -I/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/DerivedSources-normal/arm64 -Xcc -I/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/DerivedSources/arm64 -Xcc -I/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon_IOS-Swift.h -working-directory /Users/giovan/Programming/Mihon\ IOS -experimental-emit-module-separately -disable-cmo
+
+SwiftCompile normal arm64 Compiling\ AppStateStore.swift,\ FileDatabaseCoordinator.swift,\ InternalSourceRepository.swift,\ LocalImportRepository.swift,\ LRUMemoryCache.swift,\ RuntimeCacheStore.swift,\ RuntimeSourceRepository.swift,\ ServiceContracts.swift,\ SourceRepoImporter.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Data/AppStateStore.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Data/FileDatabaseCoordinator.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Data/InternalSourceRepository.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Data/LocalImportRepository.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Data/LRUMemoryCache.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Data/RuntimeCacheStore.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Data/RuntimeSourceRepository.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Data/ServiceContracts.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Data/SourceRepoImporter.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Data/AppStateStore.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Data/FileDatabaseCoordinator.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Data/InternalSourceRepository.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Data/LocalImportRepository.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Data/LRUMemoryCache.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Data/RuntimeCacheStore.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Data/RuntimeSourceRepository.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/RuntimeSourceRepository.swift:63:23: warning: capture of 'runtime' with non-Sendable type 'any SourceRuntime' in a '@Sendable' closure
+            try await runtime.popularManga(page: 1)
+                      ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Domain/Source/SourceDomain.swift:188:10: note: protocol 'SourceRuntime' does not conform to the 'Sendable' protocol
+protocol SourceRuntime {
+         ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/RuntimeSourceRepository.swift:73:23: warning: capture of 'runtime' with non-Sendable type 'any SourceRuntime' in a '@Sendable' closure
+            try await runtime.latestManga(page: 1)
+                      ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Domain/Source/SourceDomain.swift:188:10: note: protocol 'SourceRuntime' does not conform to the 'Sendable' protocol
+protocol SourceRuntime {
+         ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/RuntimeSourceRepository.swift:84:23: warning: capture of 'runtime' with non-Sendable type 'any SourceRuntime' in a '@Sendable' closure
+            try await runtime.searchManga(request)
+                      ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Domain/Source/SourceDomain.swift:188:10: note: protocol 'SourceRuntime' does not conform to the 'Sendable' protocol
+protocol SourceRuntime {
+         ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/RuntimeSourceRepository.swift:94:23: warning: capture of 'runtime' with non-Sendable type 'any SourceRuntime' in a '@Sendable' closure
+            try await runtime.mangaDetails(mangaIDOrURL: mangaIDOrURL).manga
+                      ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Domain/Source/SourceDomain.swift:188:10: note: protocol 'SourceRuntime' does not conform to the 'Sendable' protocol
+protocol SourceRuntime {
+         ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/RuntimeSourceRepository.swift:105:23: warning: capture of 'runtime' with non-Sendable type 'any SourceRuntime' in a '@Sendable' closure
+            try await runtime.chapters(for: manga).chapters
+                      ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Domain/Source/SourceDomain.swift:188:10: note: protocol 'SourceRuntime' does not conform to the 'Sendable' protocol
+protocol SourceRuntime {
+         ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/RuntimeSourceRepository.swift:116:23: warning: capture of 'runtime' with non-Sendable type 'any SourceRuntime' in a '@Sendable' closure
+            try await runtime.pages(for: chapter).pages
+                      ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Domain/Source/SourceDomain.swift:188:10: note: protocol 'SourceRuntime' does not conform to the 'Sendable' protocol
+protocol SourceRuntime {
+         ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/RuntimeSourceRepository.swift:127:23: warning: capture of 'runtime' with non-Sendable type 'any SourceRuntime' in a '@Sendable' closure
+            try await runtime.genreTags()
+                      ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Domain/Source/SourceDomain.swift:188:10: note: protocol 'SourceRuntime' does not conform to the 'Sendable' protocol
+protocol SourceRuntime {
+         ^
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Data/ServiceContracts.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Data/SourceRepoImporter.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 Compiling\ DiagnosticsDomain.swift,\ DownloadsDomain.swift,\ ImportDomain.swift,\ LibraryDomain.swift,\ LibrarySortMode.swift,\ MangaDomain.swift,\ BackupMigrationDomain.swift,\ PersistedState.swift,\ PreferencesDomain.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Domain/Diagnostics/DiagnosticsDomain.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Domain/Downloads/DownloadsDomain.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Domain/Import/ImportDomain.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Domain/Library/LibraryDomain.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Domain/Library/LibrarySortMode.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Domain/Manga/MangaDomain.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Domain/Persistence/BackupMigrationDomain.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Domain/Persistence/PersistedState.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Domain/Preferences/PreferencesDomain.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Domain/Diagnostics/DiagnosticsDomain.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Domain/Downloads/DownloadsDomain.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Domain/Import/ImportDomain.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Domain/Library/LibraryDomain.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Domain/Library/LibrarySortMode.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Domain/Manga/MangaDomain.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Domain/Persistence/BackupMigrationDomain.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Domain/Persistence/PersistedState.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Domain/Preferences/PreferencesDomain.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 Compiling\ AppChrome.swift,\ AppDependencies.swift,\ AppModel.swift,\ AppModel+DiagnosticsAndCache.swift,\ AppModel+Downloads.swift,\ AppModel+Imports.swift,\ AppModel+Library.swift,\ AppModel+MangaAccess.swift,\ AppModel+Preferences.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/AppChrome.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/AppDependencies.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/AppModel.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/AppModel+DiagnosticsAndCache.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/AppModel+Downloads.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/AppModel+Imports.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/AppModel+Library.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/AppModel+MangaAccess.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/AppModel+Preferences.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/AppChrome.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/AppDependencies.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/AppModel.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:23:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var state: PersistedState
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:24:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var sources: [Source]
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:25:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var bootState: BootState = .launching
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:26:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var importRecords: [ImportRecord]
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:27:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var importJobsState: [ImportJob]
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:28:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var repoRecords: [SourceRepoRecord]
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:29:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var sourceMangaCache: [String: [Manga]]
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:30:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var sourceGenreCache: [String: [GenreTag]]
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:31:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var chapterCache: [String: [Chapter]]
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:32:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var pageCache: [String: [ReaderPage]]
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:33:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var sourceErrors: [String: String]
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:34:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var pageLoadErrors: [String: String]
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:35:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var diagnosticLogs: [DiagnosticLogEntry]
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:36:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var repoImportErrorMessage: String?
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:37:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var importingRepoURL: String?
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:38:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var isAppUnlocked = true
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:39:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var biometricErrorMessage: String?
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:40:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var cacheStats = CacheStats(
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:49:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var downloadJobs: [DownloadJob] = []
+               ^~~~~~~~~~~~~~
+               
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/AppModel+DiagnosticsAndCache.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/AppModel+Downloads.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel+Downloads.swift:199:21: warning: reference to captured var 'self' in concurrently-executing code; this is an error in the Swift 6 language mode
+                    self?.cancelDownload(jobID: jobID)
+                    ^
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/AppModel+Imports.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/AppModel+Library.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/AppModel+MangaAccess.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/AppModel+Preferences.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 Compiling\ CategoryManagementView.swift,\ LibraryView.swift,\ MangaDetailView.swift,\ MigrationViews.swift,\ MoreView.swift,\ SettingsViews.swift,\ StatsView.swift,\ ReaderImagePipeline.swift,\ ReaderPageSurface.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Library/CategoryManagementView.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Library/LibraryView.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Manga/MangaDetailView.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Migration/MigrationViews.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/More/MoreView.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/More/SettingsViews.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/More/StatsView.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Reader/ReaderImagePipeline.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Reader/ReaderPageSurface.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Library/CategoryManagementView.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Library/LibraryView.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Manga/MangaDetailView.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Migration/MigrationViews.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/More/MoreView.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/More/SettingsViews.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/More/StatsView.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Reader/ReaderImagePipeline.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Features/Reader/ReaderImagePipeline.swift:40:62: warning: main actor-isolated static property 'shared' can not be referenced on a nonisolated actor instance
+    private let cache: AppCacheManaging = AppCacheController.shared
+                                                             ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:71:16: note: static property declared here
+    static let shared = AppCacheController()
+               ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Features/Reader/ReaderImagePipeline.swift:37:28: warning: conformance of 'ReaderImagePipeline' to protocol 'ReaderImagePipelining' involves isolation mismatches and can cause data races; this is an error in the Swift 6 language mode
+actor ReaderImagePipeline: ReaderImagePipelining {
+                           ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Features/Reader/ReaderImagePipeline.swift:37:7: note: mark all declarations used in the conformance 'nonisolated'
+actor ReaderImagePipeline: ReaderImagePipelining {
+      ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Features/Reader/ReaderImagePipeline.swift:37:28: note: turn data races into runtime errors with '@preconcurrency'
+actor ReaderImagePipeline: ReaderImagePipelining {
+                           ^
+                           @preconcurrency 
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Features/Reader/ReaderImagePipeline.swift:193:10: note: actor-isolated instance method 'cancelWindow(for:)' cannot satisfy main actor-isolated requirement
+    func cancelWindow(for chapterID: String? = nil) {
+         ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Features/Reader/ReaderImagePipeline.swift:168:28: warning: no 'async' operations occur within 'await' expression
+                    Task { await self.finishPrefetch(for: url) }
+                           ^
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Reader/ReaderPageSurface.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 Compiling\ DownloadQueueCoordinator.swift,\ DownloadsService.swift,\ Color+Hex.swift,\ UTType+Mihon.swift,\ AsuraAPISourceEngine.swift,\ AsuraHTMLSourceEngine.swift,\ NatsuIdSourceEngine.swift,\ SourceEngineUtilities.swift,\ AppCacheController.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/DownloadQueueCoordinator.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/DownloadsService.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Core/Color+Hex.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Core/UTType+Mihon.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Data/Sources/AsuraAPISourceEngine.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Data/Sources/AsuraHTMLSourceEngine.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Data/Sources/NatsuIdSourceEngine.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Data/Sources/SourceEngineUtilities.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Data/AppCacheController.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/DownloadQueueCoordinator.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/DownloadsService.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Core/Color+Hex.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Core/UTType+Mihon.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Data/Sources/AsuraAPISourceEngine.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Data/Sources/AsuraHTMLSourceEngine.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Data/Sources/NatsuIdSourceEngine.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/Sources/NatsuIdSourceEngine.swift:437:22: warning: call to main actor-isolated static method 'stripHTML' in a synchronous nonisolated context
+                .map(SourceEngineUtilities.stripHTML)
+                     ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/Sources/SourceEngineUtilities.swift:153:17: note: calls to static method 'stripHTML' from outside of its actor context are implicitly asynchronous
+    static func stripHTML(_ html: String) -> String {
+                ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/Sources/NatsuIdSourceEngine.swift:438:22: warning: call to main actor-isolated static method 'decodeHTML' in a synchronous nonisolated context
+                .map(SourceEngineUtilities.decodeHTML) ?? "Chapter \(offset + 1)"
+                     ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/Sources/SourceEngineUtilities.swift:160:17: note: calls to static method 'decodeHTML' from outside of its actor context are implicitly asynchronous
+    static func decodeHTML(_ text: String) -> String {
+                ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/Sources/NatsuIdSourceEngine.swift:472:93: warning: call to main actor-isolated static method 'imageHostKey(for:)' in a synchronous nonisolated context
+        let grouped = Dictionary(grouping: rawURLs.filter { isLikelyPageImageURL($0) }, by: imageHostKey)
+                                                                                            ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/Sources/NatsuIdSourceEngine.swift:509:25: note: calls to static method 'imageHostKey(for:)' from outside of its actor context are implicitly asynchronous
+    private static func imageHostKey(for url: String) -> String {
+                        ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/Sources/NatsuIdSourceEngine.swift:509:25: note: main actor isolation inferred from conformance to protocol 'SourceRuntime'
+    private static func imageHostKey(for url: String) -> String {
+                        ^
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Data/Sources/SourceEngineUtilities.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Data/AppCacheController.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:83:84: warning: main actor-isolated static property 'default' can not be referenced from a nonisolated context
+    init(fileManager: FileManager = .default, configuration: CacheConfiguration = .default) {
+                                                                                   ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/LRUMemoryCache.swift:20:16: note: static property declared here
+    static var `default`: CacheConfiguration {
+               ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:84:14: warning: actor-isolated property 'fileManager' can not be mutated from the main actor; this is an error in the Swift 6 language mode
+        self.fileManager = fileManager
+             ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:73:17: note: mutation of this property is only permitted within the actor
+    private let fileManager: FileManager
+                ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:97:9: warning: actor-isolated instance method 'createDirectoriesIfNeeded()' can not be referenced from the main actor; this is an error in the Swift 6 language mode
+        createDirectoriesIfNeeded()
+        ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:304:18: note: calls to instance method 'createDirectoriesIfNeeded()' from outside of its actor context are implicitly asynchronous
+    private func createDirectoriesIfNeeded() {
+                 ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:102:26: warning: main actor-isolated property 'countLimit' can not be mutated on a nonisolated actor instance
+        memoryImageCache.countLimit = newConfig.imageCountLimit
+                         ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/LRUMemoryCache.swift:125:9: note: mutation of this property is only permitted within the actor
+    var countLimit: Int {
+        ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:103:26: warning: main actor-isolated property 'totalCostLimit' can not be mutated on a nonisolated actor instance
+        memoryImageCache.totalCostLimit = newConfig.imageBytesLimit
+                         ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/LRUMemoryCache.swift:139:9: note: mutation of this property is only permitted within the actor
+    var totalCostLimit: Int {
+        ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:104:25: warning: main actor-isolated property 'countLimit' can not be mutated on a nonisolated actor instance
+        memoryDataCache.countLimit = newConfig.dataCountLimit
+                        ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/LRUMemoryCache.swift:125:9: note: mutation of this property is only permitted within the actor
+    var countLimit: Int {
+        ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:105:25: warning: main actor-isolated property 'totalCostLimit' can not be mutated on a nonisolated actor instance
+        memoryDataCache.totalCostLimit = newConfig.dataBytesLimit
+                        ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/LRUMemoryCache.swift:139:9: note: mutation of this property is only permitted within the actor
+    var totalCostLimit: Int {
+        ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:109:26: warning: call to main actor-isolated instance method 'trimToFraction' in a synchronous actor-isolated context
+        memoryImageCache.trimToFraction(fraction)
+                         ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/LRUMemoryCache.swift:224:10: note: calls to instance method 'trimToFraction' from outside of its actor context are implicitly asynchronous
+    func trimToFraction(_ fraction: Double) {
+         ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:110:25: warning: call to main actor-isolated instance method 'trimToFraction' in a synchronous actor-isolated context
+        memoryDataCache.trimToFraction(fraction)
+                        ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/LRUMemoryCache.swift:224:10: note: calls to instance method 'trimToFraction' from outside of its actor context are implicitly asynchronous
+    func trimToFraction(_ fraction: Double) {
+         ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:115:74: warning: main actor-isolated instance method 'object(forKey:)' cannot be called from outside of the actor; this is an error in the Swift 6 language mode
+        if policy != .reloadIgnoringCache, let cached = memoryImageCache.object(forKey: imageCacheKey) {
+                                                        ~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                                                        await 
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:121:32: warning: main actor-isolated static method 'decodedImage(data:for:intent:)' cannot be called from outside of the actor; this is an error in the Swift 6 language mode
+        guard let image = Self.decodedImage(data: imageData, for: url, intent: intent) else {
+                          ~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                          await 
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:125:26: warning: main actor-isolated instance method 'setObject(_:forKey:cost:)' cannot be called from outside of the actor; this is an error in the Swift 6 language mode
+        memoryImageCache.setObject(image, forKey: imageCacheKey, cost: imageData.count)
+        ~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        await 
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:172:59: warning: main actor-isolated static method 'rectKey' cannot be called from outside of the actor; this is an error in the Swift 6 language mode
+        let imageCacheKey = "\(key)|reader-preview|\(Self.rectKey(normalizedCropRect))|\(Int(maxPixelSize.rounded()))"
+                                                     ~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~
+                                                     await 
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:173:74: warning: main actor-isolated instance method 'object(forKey:)' cannot be called from outside of the actor; this is an error in the Swift 6 language mode
+        if policy != .reloadIgnoringCache, let cached = memoryImageCache.object(forKey: imageCacheKey) {
+                                                        ~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                                                        await 
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:179:32: warning: main actor-isolated static method 'croppedDownsampledImage(data:normalizedCropRect:targetPixelSize:)' cannot be called from outside of the actor; this is an error in the Swift 6 language mode
+        guard let image = Self.croppedDownsampledImage(data: imageData, normalizedCropRect: normalizedCropRect, targetPixelSize: CGSize(width: maxPixelSize, height: maxPixelSize)) else {
+                          ~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                          await 
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:183:9: warning: expression is 'async' but is not marked with 'await'; this is an error in the Swift 6 language mode
+        memoryImageCache.setObject(image, forKey: imageCacheKey, cost: Self.imageCost(for: image))
+        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        await 
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:183:9: note: calls to instance method 'setObject(_:forKey:cost:)' from outside of its actor context are implicitly asynchronous
+        memoryImageCache.setObject(image, forKey: imageCacheKey, cost: Self.imageCost(for: image))
+        ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:183:72: note: calls to static method 'imageCost(for:)' from outside of its actor context are implicitly asynchronous
+        memoryImageCache.setObject(image, forKey: imageCacheKey, cost: Self.imageCost(for: image))
+                                                                       ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:508:25: note: main actor isolation inferred from conformance to protocol 'AppCacheManaging'
+    private static func imageCost(for image: UIImage) -> Int {
+                        ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:194:56: warning: main actor-isolated static method 'rectKey' cannot be called from outside of the actor; this is an error in the Swift 6 language mode
+        let imageCacheKey = "\(key)|reader-tile|\(Self.rectKey(normalizedCropRect))|\(Self.sizeKey(targetPixelSize))"
+                                                  ~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~
+                                                  await 
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:194:92: warning: main actor-isolated static method 'sizeKey' cannot be called from outside of the actor; this is an error in the Swift 6 language mode
+        let imageCacheKey = "\(key)|reader-tile|\(Self.rectKey(normalizedCropRect))|\(Self.sizeKey(targetPixelSize))"
+                                                                                      ~~~~~^~~~~~~~~~~~~~~~~~~~~~~~
+                                                                                      await 
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:195:74: warning: main actor-isolated instance method 'object(forKey:)' cannot be called from outside of the actor; this is an error in the Swift 6 language mode
+        if policy != .reloadIgnoringCache, let cached = memoryImageCache.object(forKey: imageCacheKey) {
+                                                        ~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                                                        await 
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:201:32: warning: main actor-isolated static method 'croppedDownsampledImage(data:normalizedCropRect:targetPixelSize:)' cannot be called from outside of the actor; this is an error in the Swift 6 language mode
+        guard let image = Self.croppedDownsampledImage(data: imageData, normalizedCropRect: normalizedCropRect, targetPixelSize: targetPixelSize) else {
+                          ~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                          await 
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:205:9: warning: expression is 'async' but is not marked with 'await'; this is an error in the Swift 6 language mode
+        memoryImageCache.setObject(image, forKey: imageCacheKey, cost: Self.imageCost(for: image))
+        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        await 
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:205:9: note: calls to instance method 'setObject(_:forKey:cost:)' from outside of its actor context are implicitly asynchronous
+        memoryImageCache.setObject(image, forKey: imageCacheKey, cost: Self.imageCost(for: image))
+        ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:205:72: note: calls to static method 'imageCost(for:)' from outside of its actor context are implicitly asynchronous
+        memoryImageCache.setObject(image, forKey: imageCacheKey, cost: Self.imageCost(for: image))
+                                                                       ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:508:25: note: main actor isolation inferred from conformance to protocol 'AppCacheManaging'
+    private static func imageCost(for image: UIImage) -> Int {
+                        ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:211:37: warning: main actor-isolated static method 'imageDimensions(data:)' cannot be called from outside of the actor; this is an error in the Swift 6 language mode
+        guard let dimensions = Self.imageDimensions(data: imageData) else {
+                               ~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                               await 
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:220:73: warning: main actor-isolated instance method 'object(forKey:)' cannot be called from outside of the actor; this is an error in the Swift 6 language mode
+        if policy != .reloadIgnoringCache, let cached = memoryDataCache.object(forKey: cacheKey) {
+                                                        ~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~
+                                                        await 
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:228:33: warning: main actor-isolated instance method 'setObject(_:forKey:cost:)' cannot be called from outside of the actor; this is an error in the Swift 6 language mode
+                memoryDataCache.setObject(diskValue.payload as NSData, forKey: cacheKey, cost: diskValue.payload.count)
+                ~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                await 
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:248:29: warning: main actor-isolated instance method 'setObject(_:forKey:cost:)' cannot be called from outside of the actor; this is an error in the Swift 6 language mode
+            memoryDataCache.setObject(payload as NSData, forKey: cacheKey, cost: payload.count)
+            ~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            await 
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:272:30: warning: main actor-isolated instance method 'removeAllObjects()' cannot be called from outside of the actor; this is an error in the Swift 6 language mode
+            memoryImageCache.removeAllObjects()
+            ~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~
+            await 
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:275:29: warning: main actor-isolated instance method 'removeAllObjects()' cannot be called from outside of the actor; this is an error in the Swift 6 language mode
+            memoryDataCache.removeAllObjects()
+            ~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~
+            await 
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:278:44: warning: main actor-isolated instance method 'allKeys()' cannot be called from outside of the actor; this is an error in the Swift 6 language mode
+            let liveKeys = memoryDataCache.allKeys()
+                           ~~~~~~~~~~~~~~~~^~~~~~~~~
+                           await 
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:280:33: warning: main actor-isolated instance method 'removeObject(forKey:)' cannot be called from outside of the actor; this is an error in the Swift 6 language mode
+                memoryDataCache.removeObject(forKey: key)
+                ~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~
+                await 
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:293:9: warning: expression is 'async' but is not marked with 'await'; this is an error in the Swift 6 language mode
+        CacheStats(
+        ^~~~~~~~~~~
+        await 
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:294:31: note: property access is 'async'
+            memoryImageCount: memoryImageCache.count,
+                              ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:295:30: note: property access is 'async'
+            memoryDataCount: memoryDataCache.count,
+                             ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:324:60: warning: call to main actor-isolated static method 'digest' in a synchronous actor-isolated context
+        directory(for: domain).appendingPathComponent(Self.digest(key) + ".cache")
+                                                           ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:401:25: note: calls to static method 'digest' from outside of its actor context are implicitly asynchronous
+    private static func digest(_ key: String) -> String {
+                        ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:401:25: note: main actor isolation inferred from conformance to protocol 'AppCacheManaging'
+    private static func digest(_ key: String) -> String {
+                        ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:331:34: warning: main actor-isolated conformance of 'DiskCacheEnvelope' to 'Decodable' cannot be used in actor-isolated context; this is an error in the Swift 6 language mode
+        return try JSONDecoder().decode(DiskCacheEnvelope.self, from: data)
+                                 ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:346:38: warning: main actor-isolated conformance of 'DiskCacheEnvelope' to 'Encodable' cannot be used in actor-isolated context; this is an error in the Swift 6 language mode
+        let data = try JSONEncoder().encode(envelope)
+                                     ^
+
+SwiftCompile normal arm64 Compiling\ ReaderRenderModels.swift,\ ReaderSettingsView.swift,\ ReaderTiledPageView.swift,\ ReaderUIComponents.swift,\ ReaderView.swift,\ ReaderView+ChapterNavigation.swift,\ ReaderView+ChromeStyle.swift,\ ReaderView+ComputedState.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Reader/ReaderRenderModels.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Reader/ReaderSettingsView.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Reader/ReaderTiledPageView.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Reader/ReaderUIComponents.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Reader/ReaderView.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Reader/ReaderView+ChapterNavigation.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Reader/ReaderView+ChromeStyle.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Reader/ReaderView+ComputedState.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Reader/ReaderRenderModels.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Reader/ReaderSettingsView.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Reader/ReaderTiledPageView.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Features/Reader/ReaderTiledPageView.swift:302:101: warning: 'main' was deprecated in iOS 26.0: Use a UIScreen instance found through context instead (i.e, view.window.windowScene.screen), or for properties like UIScreen.scale with trait equivalents, use a traitCollection found through context.
+        let maxPreviewPixels = max(fittedPreviewSize.width, fittedPreviewSize.height, 1) * UIScreen.main.scale * 3
+                                                                                                    ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Features/Reader/ReaderTiledPageView.swift:396:30: warning: 'main' was deprecated in iOS 26.0: Use a UIScreen instance found through context instead (i.e, view.window.windowScene.screen), or for properties like UIScreen.scale with trait equivalents, use a traitCollection found through context.
+        let scale = UIScreen.main.scale * scrollView.zoomScale
+                             ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Features/Reader/ReaderTiledPageView.swift:427:69: warning: 'main' was deprecated in iOS 26.0: Use a UIScreen instance found through context instead (i.e, view.window.windowScene.screen), or for properties like UIScreen.scale with trait equivalents, use a traitCollection found through context.
+                        width: tileRect.width * max(scale, UIScreen.main.scale * 1.25),
+                                                                    ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Features/Reader/ReaderTiledPageView.swift:428:71: warning: 'main' was deprecated in iOS 26.0: Use a UIScreen instance found through context instead (i.e, view.window.windowScene.screen), or for properties like UIScreen.scale with trait equivalents, use a traitCollection found through context.
+                        height: tileRect.height * max(scale, UIScreen.main.scale * 1.25)
+                                                                      ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Features/Reader/ReaderTiledPageView.swift:579:65: warning: 'main' was deprecated in iOS 26.0: Use a UIScreen instance found through context instead (i.e, view.window.windowScene.screen), or for properties like UIScreen.scale with trait equivalents, use a traitCollection found through context.
+        let requiredWidth = contentView.bounds.width * UIScreen.main.scale
+                                                                ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Features/Reader/ReaderTiledPageView.swift:580:67: warning: 'main' was deprecated in iOS 26.0: Use a UIScreen instance found through context instead (i.e, view.window.windowScene.screen), or for properties like UIScreen.scale with trait equivalents, use a traitCollection found through context.
+        let requiredHeight = contentView.bounds.height * UIScreen.main.scale
+                                                                  ^
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Reader/ReaderUIComponents.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Reader/ReaderView.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Features/Reader/ReaderView.swift:159:17: warning: no 'async' operations occur within 'await' expression
+                await imagePipeline.cancelWindow(for: currentChapter.id)
+                ^
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Reader/ReaderView+ChapterNavigation.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Reader/ReaderView+ChromeStyle.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Reader/ReaderView+ComputedState.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 Compiling\ TabBarControllerAccessor.swift,\ TrackingViews.swift,\ UpdatesView.swift,\ RootTabView.swift,\ ContentView.swift,\ Mihon_IOSApp.swift,\ MihonDomain.swift,\ GeneratedAssetSymbols.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Shared/TabBarControllerAccessor.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Tracking/TrackingViews.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Updates/UpdatesView.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/RootTabView.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/ContentView.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Mihon_IOSApp.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/MihonDomain.swift /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/DerivedSources/GeneratedAssetSymbols.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Shared/TabBarControllerAccessor.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Tracking/TrackingViews.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Updates/UpdatesView.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/RootTabView.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/ContentView.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Mihon_IOSApp.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/MihonDomain.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/DerivedSources/GeneratedAssetSymbols.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftEmitModule normal arm64 Emitting\ module\ for\ Mihon_IOS (in target 'Mihon IOS' from project 'Mihon IOS')
+
+EmitSwiftModule normal arm64 (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:23:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var state: PersistedState
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:24:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var sources: [Source]
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:25:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var bootState: BootState = .launching
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:26:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var importRecords: [ImportRecord]
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:27:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var importJobsState: [ImportJob]
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:28:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var repoRecords: [SourceRepoRecord]
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:29:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var sourceMangaCache: [String: [Manga]]
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:30:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var sourceGenreCache: [String: [GenreTag]]
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:31:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var chapterCache: [String: [Chapter]]
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:32:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var pageCache: [String: [ReaderPage]]
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:33:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var sourceErrors: [String: String]
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:34:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var pageLoadErrors: [String: String]
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:35:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var diagnosticLogs: [DiagnosticLogEntry]
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:36:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var repoImportErrorMessage: String?
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:37:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var importingRepoURL: String?
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:38:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var isAppUnlocked = true
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:39:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var biometricErrorMessage: String?
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:40:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var cacheStats = CacheStats(
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/App/AppModel.swift:49:16: warning: 'internal(set)' modifier is redundant for an internal property
+    @Published internal(set) var downloadJobs: [DownloadJob] = []
+               ^~~~~~~~~~~~~~
+               
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:83:84: warning: main actor-isolated static property 'default' can not be referenced from a nonisolated context
+    init(fileManager: FileManager = .default, configuration: CacheConfiguration = .default) {
+                                                                                   ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/LRUMemoryCache.swift:20:16: note: static property declared here
+    static var `default`: CacheConfiguration {
+               ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:84:14: warning: actor-isolated property 'fileManager' can not be mutated from the main actor; this is an error in the Swift 6 language mode
+        self.fileManager = fileManager
+             ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:73:17: note: mutation of this property is only permitted within the actor
+    private let fileManager: FileManager
+                ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:97:9: warning: actor-isolated instance method 'createDirectoriesIfNeeded()' can not be referenced from the main actor; this is an error in the Swift 6 language mode
+        createDirectoriesIfNeeded()
+        ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:304:18: note: calls to instance method 'createDirectoriesIfNeeded()' from outside of its actor context are implicitly asynchronous
+    private func createDirectoriesIfNeeded() {
+                 ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Features/Reader/ReaderImagePipeline.swift:40:62: warning: main actor-isolated static property 'shared' can not be referenced on a nonisolated actor instance
+    private let cache: AppCacheManaging = AppCacheController.shared
+                                                             ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Data/AppCacheController.swift:71:16: note: static property declared here
+    static let shared = AppCacheController()
+               ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Features/Reader/ReaderImagePipeline.swift:37:28: warning: conformance of 'ReaderImagePipeline' to protocol 'ReaderImagePipelining' involves isolation mismatches and can cause data races; this is an error in the Swift 6 language mode
+actor ReaderImagePipeline: ReaderImagePipelining {
+                           ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Features/Reader/ReaderImagePipeline.swift:37:7: note: mark all declarations used in the conformance 'nonisolated'
+actor ReaderImagePipeline: ReaderImagePipelining {
+      ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Features/Reader/ReaderImagePipeline.swift:37:28: note: turn data races into runtime errors with '@preconcurrency'
+actor ReaderImagePipeline: ReaderImagePipelining {
+                           ^
+                           @preconcurrency 
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Features/Reader/ReaderImagePipeline.swift:193:10: note: actor-isolated instance method 'cancelWindow(for:)' cannot satisfy main actor-isolated requirement
+    func cancelWindow(for chapterID: String? = nil) {
+         ^
+
+SwiftCompile normal arm64 Compiling\ Routes.swift,\ SourceDomain.swift,\ TrackingDomain.swift,\ BrowseView.swift,\ GlobalSearchView.swift,\ SourceCatalogViews.swift,\ DownloadQueueView.swift,\ DownloadsView.swift,\ HistoryView.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Domain/Routing/Routes.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Domain/Source/SourceDomain.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Domain/Tracking/TrackingDomain.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Browse/BrowseView.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Browse/GlobalSearchView.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Browse/SourceCatalogViews.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Downloads/DownloadQueueView.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Downloads/DownloadsView.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/History/HistoryView.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Domain/Routing/Routes.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Domain/Source/SourceDomain.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Domain/Tracking/TrackingDomain.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Browse/BrowseView.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Browse/GlobalSearchView.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Browse/SourceCatalogViews.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Downloads/DownloadQueueView.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Downloads/DownloadsView.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/History/HistoryView.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 Compiling\ AppModel+ReaderProgress.swift,\ AppModel+Repositories.swift,\ AppModel+Security.swift,\ AppModel+SourceCaching.swift,\ AppModel+Sources.swift,\ AppModel+Tracking.swift,\ AppModel+Updates.swift,\ BackgroundTaskManager.swift,\ BiometricAuthenticator.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/AppModel+ReaderProgress.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/AppModel+Repositories.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/AppModel+Security.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/AppModel+SourceCaching.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/AppModel+Sources.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/AppModel+Tracking.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/AppModel+Updates.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/BackgroundTaskManager.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/BiometricAuthenticator.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/AppModel+ReaderProgress.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/AppModel+Repositories.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/AppModel+Security.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/AppModel+SourceCaching.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/AppModel+Sources.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/AppModel+Tracking.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/AppModel+Updates.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/BackgroundTaskManager.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/App/BiometricAuthenticator.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+LinkAssetCatalog /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Assets.xcassets (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    builtin-linkAssetCatalog --thinned /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/assetcatalog_output/thinned --thinned-dependencies /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/assetcatalog_dependencies_thinned --thinned-info-plist-content /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/assetcatalog_generated_info.plist_thinned --unthinned /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/assetcatalog_output/unthinned --unthinned-dependencies /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/assetcatalog_dependencies_unthinned --unthinned-info-plist-content /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/assetcatalog_generated_info.plist_unthinned --output /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app --plist-output /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/assetcatalog_generated_info.plist
+
+SwiftDriverJobDiscovery normal arm64 Compiling TabBarControllerAccessor.swift, TrackingViews.swift, UpdatesView.swift, RootTabView.swift, ContentView.swift, Mihon_IOSApp.swift, MihonDomain.swift, GeneratedAssetSymbols.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+
+SwiftCompile normal arm64 Compiling\ ReaderView+LoadLifecycle.swift,\ ReaderView+PagerInteraction.swift,\ ReaderView+PageStateUpdates.swift,\ ReaderView+SnapshotLifecycle.swift,\ ReaderView+UIActions.swift,\ ReaderView+VerticalScroll.swift,\ ReaderViewModels.swift,\ MangaCoverView.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Reader/ReaderView+LoadLifecycle.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Reader/ReaderView+PagerInteraction.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Reader/ReaderView+PageStateUpdates.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Reader/ReaderView+SnapshotLifecycle.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Reader/ReaderView+UIActions.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Reader/ReaderView+VerticalScroll.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Reader/ReaderViewModels.swift /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Shared/MangaCoverView.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Reader/ReaderView+LoadLifecycle.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Features/Reader/ReaderView+LoadLifecycle.swift:76:17: warning: no 'async' operations occur within 'await' expression
+                await imagePipeline.cancelWindow(for: currentChapter.id)
+                ^
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Reader/ReaderView+PagerInteraction.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Reader/ReaderView+PageStateUpdates.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Reader/ReaderView+SnapshotLifecycle.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Reader/ReaderView+UIActions.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Reader/ReaderView+VerticalScroll.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Reader/ReaderViewModels.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+
+SwiftCompile normal arm64 /Users/giovan/Programming/Mihon\ IOS/Mihon\ IOS/Features/Shared/MangaCoverView.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Features/Shared/MangaCoverView.swift:19:50: warning: call to main actor-isolated initializer 'init(hex:)' in a synchronous nonisolated context
+                    colors: manga.coverHexes.map(Color.init(hex:)),
+                                                 ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Core/Color+Hex.swift:9:5: note: calls to initializer 'init(hex:)' from outside of its actor context are implicitly asynchronous
+    init(hex: String) {
+    ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Features/Shared/MangaCoverView.swift:51:42: warning: call to main actor-isolated initializer 'init(hex:)' in a synchronous nonisolated context
+            colors: manga.coverHexes.map(Color.init(hex:)),
+                                         ^
+/Users/giovan/Programming/Mihon IOS/Mihon IOS/Core/Color+Hex.swift:9:5: note: calls to initializer 'init(hex:)' from outside of its actor context are implicitly asynchronous
+    init(hex: String) {
+    ^
+
+ProcessInfoPlistFile /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app/Info.plist /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/empty-Mihon\ IOS.plist (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    builtin-infoPlistUtility /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/empty-Mihon\ IOS.plist -producttype com.apple.product-type.application -genpkginfo /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app/PkgInfo -expandbuildsettings -format binary -platform iphonesimulator -additionalcontentfile /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/assetcatalog_generated_info.plist -o /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app/Info.plist
+
+SwiftDriverJobDiscovery normal arm64 Emitting module for Mihon_IOS (in target 'Mihon IOS' from project 'Mihon IOS')
+
+SwiftDriver\ Compilation\ Requirements Mihon\ IOS normal arm64 com.apple.xcode.tools.swift.compiler (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    builtin-Swift-Compilation-Requirements -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name Mihon_IOS -Onone @/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon\ IOS.SwiftFileList -DDEBUG -default-isolation\=MainActor -enable-bare-slash-regex -enable-upcoming-feature DisableOutwardActorInference -enable-upcoming-feature InferSendableFromCaptures -enable-upcoming-feature GlobalActorIsolatedTypesUsability -enable-upcoming-feature MemberImportVisibility -enable-upcoming-feature InferIsolatedConformances -enable-upcoming-feature NonisolatedNonsendingByDefault -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.4.sdk -target arm64-apple-ios26.2-simulator -g -module-cache-path /Users/giovan/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 5 -I /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator -F /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator -emit-localized-strings -emit-localized-strings-path /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64 -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/giovan/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphonesimulator26.4-23E237-686eebb5dc1d8ecb277353a59184f4aa.sdkstatcache -output-file-map /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon\ IOS-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/giovan/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -sdk-module-cache-path /Users/giovan/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon_IOS.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/giovan/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon\ IOS_const_extract_protocols.json -Xcc -iquote -Xcc /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS-generated-files.hmap -Xcc -I/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS-own-target-headers.hmap -Xcc -I/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS-all-target-headers.hmap -Xcc -iquote -Xcc /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS-project-headers.hmap -Xcc -I/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/DerivedSources-normal/arm64 -Xcc -I/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/DerivedSources/arm64 -Xcc -I/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon_IOS-Swift.h -working-directory /Users/giovan/Programming/Mihon\ IOS -experimental-emit-module-separately -disable-cmo
+
+SwiftMergeGeneratedHeaders /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/DerivedSources/Mihon_IOS-Swift.h /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon_IOS-Swift.h (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    builtin-swiftHeaderTool -arch arm64 /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon_IOS-Swift.h -o /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/DerivedSources/Mihon_IOS-Swift.h
+
+Copy /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon_IOS.swiftmodule/arm64-apple-ios-simulator.swiftmodule /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon_IOS.swiftmodule (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon_IOS.swiftmodule /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon_IOS.swiftmodule/arm64-apple-ios-simulator.swiftmodule
+
+Copy /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon_IOS.swiftmodule/arm64-apple-ios-simulator.swiftdoc /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon_IOS.swiftdoc (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon_IOS.swiftdoc /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon_IOS.swiftmodule/arm64-apple-ios-simulator.swiftdoc
+
+Copy /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon_IOS.swiftmodule/arm64-apple-ios-simulator.abi.json /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon_IOS.abi.json (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon_IOS.abi.json /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon_IOS.swiftmodule/arm64-apple-ios-simulator.abi.json
+
+Copy /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon_IOS.swiftmodule/Project/arm64-apple-ios-simulator.swiftsourceinfo /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon_IOS.swiftsourceinfo (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon_IOS.swiftsourceinfo /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon_IOS.swiftmodule/Project/arm64-apple-ios-simulator.swiftsourceinfo
+
+SwiftDriverJobDiscovery normal arm64 Compiling AppModel+ReaderProgress.swift, AppModel+Repositories.swift, AppModel+Security.swift, AppModel+SourceCaching.swift, AppModel+Sources.swift, AppModel+Tracking.swift, AppModel+Updates.swift, BackgroundTaskManager.swift, BiometricAuthenticator.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+
+SwiftDriverJobDiscovery normal arm64 Compiling ReaderView+LoadLifecycle.swift, ReaderView+PagerInteraction.swift, ReaderView+PageStateUpdates.swift, ReaderView+SnapshotLifecycle.swift, ReaderView+UIActions.swift, ReaderView+VerticalScroll.swift, ReaderViewModels.swift, MangaCoverView.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+
+SwiftDriverJobDiscovery normal arm64 Compiling DiagnosticsDomain.swift, DownloadsDomain.swift, ImportDomain.swift, LibraryDomain.swift, LibrarySortMode.swift, MangaDomain.swift, BackupMigrationDomain.swift, PersistedState.swift, PreferencesDomain.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+
+SwiftDriverJobDiscovery normal arm64 Compiling AppStateStore.swift, FileDatabaseCoordinator.swift, InternalSourceRepository.swift, LocalImportRepository.swift, LRUMemoryCache.swift, RuntimeCacheStore.swift, RuntimeSourceRepository.swift, ServiceContracts.swift, SourceRepoImporter.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+
+SwiftDriverJobDiscovery normal arm64 Compiling AppChrome.swift, AppDependencies.swift, AppModel.swift, AppModel+DiagnosticsAndCache.swift, AppModel+Downloads.swift, AppModel+Imports.swift, AppModel+Library.swift, AppModel+MangaAccess.swift, AppModel+Preferences.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+
+SwiftDriverJobDiscovery normal arm64 Compiling DownloadQueueCoordinator.swift, DownloadsService.swift, Color+Hex.swift, UTType+Mihon.swift, AsuraAPISourceEngine.swift, AsuraHTMLSourceEngine.swift, NatsuIdSourceEngine.swift, SourceEngineUtilities.swift, AppCacheController.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+
+SwiftDriverJobDiscovery normal arm64 Compiling Routes.swift, SourceDomain.swift, TrackingDomain.swift, BrowseView.swift, GlobalSearchView.swift, SourceCatalogViews.swift, DownloadQueueView.swift, DownloadsView.swift, HistoryView.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+
+SwiftDriverJobDiscovery normal arm64 Compiling ReaderRenderModels.swift, ReaderSettingsView.swift, ReaderTiledPageView.swift, ReaderUIComponents.swift, ReaderView.swift, ReaderView+ChapterNavigation.swift, ReaderView+ChromeStyle.swift, ReaderView+ComputedState.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+
+SwiftDriverJobDiscovery normal arm64 Compiling CategoryManagementView.swift, LibraryView.swift, MangaDetailView.swift, MigrationViews.swift, MoreView.swift, SettingsViews.swift, StatsView.swift, ReaderImagePipeline.swift, ReaderPageSurface.swift (in target 'Mihon IOS' from project 'Mihon IOS')
+
+SwiftDriver\ Compilation Mihon\ IOS normal arm64 com.apple.xcode.tools.swift.compiler (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    builtin-Swift-Compilation -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name Mihon_IOS -Onone @/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon\ IOS.SwiftFileList -DDEBUG -default-isolation\=MainActor -enable-bare-slash-regex -enable-upcoming-feature DisableOutwardActorInference -enable-upcoming-feature InferSendableFromCaptures -enable-upcoming-feature GlobalActorIsolatedTypesUsability -enable-upcoming-feature MemberImportVisibility -enable-upcoming-feature InferIsolatedConformances -enable-upcoming-feature NonisolatedNonsendingByDefault -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.4.sdk -target arm64-apple-ios26.2-simulator -g -module-cache-path /Users/giovan/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 5 -I /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator -F /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator -emit-localized-strings -emit-localized-strings-path /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64 -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/giovan/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphonesimulator26.4-23E237-686eebb5dc1d8ecb277353a59184f4aa.sdkstatcache -output-file-map /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon\ IOS-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/giovan/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -sdk-module-cache-path /Users/giovan/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon_IOS.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/giovan/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon\ IOS_const_extract_protocols.json -Xcc -iquote -Xcc /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS-generated-files.hmap -Xcc -I/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS-own-target-headers.hmap -Xcc -I/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS-all-target-headers.hmap -Xcc -iquote -Xcc /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS-project-headers.hmap -Xcc -I/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/DerivedSources-normal/arm64 -Xcc -I/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/DerivedSources/arm64 -Xcc -I/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon_IOS-Swift.h -working-directory /Users/giovan/Programming/Mihon\ IOS -experimental-emit-module-separately -disable-cmo
+
+Ld /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app/Mihon\ IOS.debug.dylib normal (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios26.2-simulator -dynamiclib -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.4.sdk -O0 -L/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator -L/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator -F/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator -F/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator -filelist /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon\ IOS.LinkFileList -install_name @rpath/Mihon\ IOS.debug.dylib -Xlinker -rpath -Xlinker @executable_path/Frameworks -Xlinker -dead_strip -Xlinker -object_path_lto -Xlinker /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon\ IOS_lto.o -rdynamic -Xlinker -no_deduplicate -Xlinker -objc_abi_version -Xlinker 2 -Xlinker -dependency_info -Xlinker /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon\ IOS_dependency_info.dat -fobjc-link-runtime -L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphonesimulator -L/usr/lib/swift -Xlinker -add_ast_path -Xlinker /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon_IOS.swiftmodule @/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon_IOS-linker-args.resp -Xlinker -alias -Xlinker _main -Xlinker ___debug_main_executable_dylib_entry_point -Xlinker -no_adhoc_codesign -o /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app/Mihon\ IOS.debug.dylib
+
+ConstructStubExecutorLinkFileList /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS-ExecutorLinkFileList-normal-arm64.txt (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    construct-stub-executor-link-file-list /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app/Mihon\ IOS.debug.dylib /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libPreviewsJITStubExecutor_no_swift_entry_point.a /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libPreviewsJITStubExecutor.a --output /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS-ExecutorLinkFileList-normal-arm64.txt
+note: Using stub executor library with Swift entry point. (in target 'Mihon IOS' from project 'Mihon IOS')
+
+Ld /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app/Mihon\ IOS normal (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios26.2-simulator -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.4.sdk -O0 -L/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator -F/Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator -Xlinker -rpath -Xlinker @executable_path -Xlinker -rpath -Xlinker @executable_path/Frameworks -rdynamic -Xlinker -no_deduplicate -Xlinker -objc_abi_version -Xlinker 2 -e ___debug_blank_executor_main -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __debug_dylib -Xlinker /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS-DebugDylibPath-normal-arm64.txt -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __debug_instlnm -Xlinker /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS-DebugDylibInstallName-normal-arm64.txt -Xlinker -filelist -Xlinker /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS-ExecutorLinkFileList-normal-arm64.txt -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __entitlements -Xlinker /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS.app-Simulated.xcent -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __ents_der -Xlinker /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS.app-Simulated.xcent.der /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app/Mihon\ IOS.debug.dylib -Xlinker -no_adhoc_codesign -o /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app/Mihon\ IOS
+
+CopySwiftLibs /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app/Mihon\ IOS.debug.dylib --scan-folder /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app/Frameworks --scan-folder /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app/PlugIns --scan-folder /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app/SystemExtensions --scan-folder /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app/Extensions --platform iphonesimulator --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app/Frameworks --strip-bitcode --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os
+
+ExtractAppIntentsMetadata (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --module-name Mihon_IOS --sdk-root /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.4.sdk --xcode-version 17E192 --platform-family iOS --deployment-target 26.2 --bundle-identifier giovanchristoffel.Mihon-IOS --output /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app --target-triple arm64-apple-ios26.2-simulator --binary-file /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app/Mihon\ IOS --dependency-file /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon\ IOS_dependency_info.dat --stringsdata-file /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon\ IOS.SwiftFileList --metadata-file-list /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS.DependencyMetadataFileList --static-metadata-file-list /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS.DependencyStaticMetadataFileList --swift-const-vals-list /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Objects-normal/arm64/Mihon\ IOS.SwiftConstValuesFileList --compile-time-extraction --deployment-aware-processing --validate-assistant-intents --no-app-shortcuts-localization
+2026-04-11 15:58:11.431 appintentsmetadataprocessor[32685:8596749] Starting appintentsmetadataprocessor export
+2026-04-11 15:58:11.432 appintentsmetadataprocessor[32685:8596749] warning: Metadata extraction skipped. No AppIntents.framework dependency found.
+
+AppIntentsSSUTraining (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsnltrainingprocessor --infoplist-path /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app/Info.plist --temp-dir-path /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/ssu --bundle-id giovanchristoffel.Mihon-IOS --product-path /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app --extracted-metadata-path /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app/Metadata.appintents --metadata-file-list /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Intermediates.noindex/Mihon\ IOS.build/Debug-iphonesimulator/Mihon\ IOS.build/Mihon\ IOS.DependencyMetadataFileList --source-file /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app/Info.plist --archive-ssu-assets
+2026-04-11 15:58:11.442 appintentsnltrainingprocessor[32686:8596750] Parsing options for appintentsnltrainingprocessor
+2026-04-11 15:58:11.442 appintentsnltrainingprocessor[32686:8596750] Starting AppIntents SSU YAML Generation
+2026-04-11 15:58:11.442 appintentsnltrainingprocessor[32686:8596750] No AppShortcuts found - Skipping.
+
+CodeSign /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app/Mihon\ IOS.debug.dylib (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app/Mihon\ IOS.debug.dylib
+
+CodeSign /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app/__preview.dylib (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app/__preview.dylib
+
+CodeSign /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app
+
+RegisterExecutionPolicyException /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    builtin-RegisterExecutionPolicyException /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app
+
+Validate /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    builtin-validationUtility /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app -shallow-bundle -infoplist-subpath Info.plist
+
+Touch /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app (in target 'Mihon IOS' from project 'Mihon IOS')
+    cd /Users/giovan/Programming/Mihon\ IOS
+    /usr/bin/touch -c /Users/giovan/Library/Developer/Xcode/DerivedData/Mihon_IOS-aeqirorjrdejtrfmovigainooujp/Build/Products/Debug-iphonesimulator/Mihon\ IOS.app
+
+** BUILD SUCCEEDED **
+

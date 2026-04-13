@@ -38,7 +38,7 @@ extension AppModel {
 
     func refreshSourceFeed(for source: Source, mode: SourceFeedKind, query: String = "", filters: [SourceFilterValue] = []) async {
         guard supportsLiveSource(source) else { return }
-        appendDiagnostic(kind: .stateTransition, title: "Source Feed Started", message: "Refreshing \(mode.rawValue) feed.", metadata: ["source": source.name])
+        appendDiagnostic(kind: .stateTransition, severity: .info, title: "Source Feed Started", message: "Refreshing \(mode.rawValue) feed.", module: "SourceCaching", metadata: ["source": source.name, "mode": mode.rawValue])
         do {
             let items: [Manga]
             switch mode {
@@ -51,12 +51,12 @@ extension AppModel {
             }
             setCachedSourceManga(items, for: source.id)
             sourceErrors[source.id] = nil
-            appendDiagnostic(kind: .cache, title: "Source Feed Cached", message: "Stored \(items.count) items.", metadata: ["source": source.name, "mode": mode.rawValue])
+            appendDiagnostic(kind: .cache, severity: .info, title: "Source Feed Cached", message: "Stored \(items.count) items.", module: "SourceCaching", metadata: ["source": source.name, "mode": mode.rawValue])
             trimSourceCachesIfNeeded()
             await refreshCacheStats()
         } catch {
             sourceErrors[source.id] = error.localizedDescription
-            appendDiagnostic(kind: .source, title: "Source Feed Failed", message: error.localizedDescription, metadata: ["source": source.name, "mode": mode.rawValue])
+            appendDiagnostic(kind: .source, severity: .error, title: "Source Feed Failed", message: error.localizedDescription, errorCode: DiagnosticErrorCode.srcFeedFailed.rawValue, module: "SourceCaching", resolutionHint: "Check network connectivity and retry the source feed.", metadata: ["source": source.name, "mode": mode.rawValue])
         }
     }
 
@@ -65,11 +65,11 @@ extension AppModel {
         do {
             let genres = try await repository.genreTags(sourceID: source.id)
             setCachedGenreTags(genres, for: source.id)
-            appendDiagnostic(kind: .cache, title: "Genre Cache Filled", message: "Loaded \(genres.count) genres.", metadata: ["source": source.name])
+            appendDiagnostic(kind: .cache, severity: .info, title: "Genre Cache Filled", message: "Loaded \(genres.count) genres.", module: "SourceCaching", metadata: ["source": source.name])
             await refreshCacheStats()
         } catch {
             sourceErrors[source.id] = error.localizedDescription
-            appendDiagnostic(kind: .source, title: "Genre Load Failed", message: error.localizedDescription, metadata: ["source": source.name])
+            appendDiagnostic(kind: .source, severity: .error, title: "Genre Load Failed", message: error.localizedDescription, errorCode: DiagnosticErrorCode.srcGenreLoadFailed.rawValue, module: "SourceCaching", metadata: ["source": source.name])
         }
     }
 
@@ -77,7 +77,7 @@ extension AppModel {
         guard supportsLiveSource(sourceID: manga.sourceID) else {
             return manga
         }
-        appendDiagnostic(kind: .stateTransition, title: "Manga Detail Started", message: "Refreshing manga details.", metadata: ["manga": manga.title, "sourceID": manga.sourceID])
+        appendDiagnostic(kind: .stateTransition, severity: .info, title: "Manga Detail Started", message: "Refreshing manga details.", module: "SourceCaching", metadata: ["manga": manga.title, "sourceID": manga.sourceID])
         do {
             let details = try await repository.mangaDetails(sourceID: manga.sourceID, mangaIDOrURL: manga.id)
             replaceCachedManga(details.manga, for: manga.sourceID)
@@ -86,7 +86,7 @@ extension AppModel {
             return details.manga
         } catch {
             sourceErrors[manga.sourceID] = error.localizedDescription
-            appendDiagnostic(kind: .source, title: "Manga Detail Failed", message: error.localizedDescription, metadata: ["sourceID": manga.sourceID, "manga": manga.title])
+            appendDiagnostic(kind: .source, severity: .error, title: "Manga Detail Failed", message: error.localizedDescription, errorCode: DiagnosticErrorCode.srcMangaDetailFailed.rawValue, module: "SourceCaching", metadata: ["sourceID": manga.sourceID, "manga": manga.title])
             return manga
         }
     }
@@ -95,10 +95,30 @@ extension AppModel {
         if manga.sourceID == "local-files" {
             return chapters(for: manga)
         }
-        appendDiagnostic(kind: .stateTransition, title: "Chapter Load Started", message: "Refreshing chapter list.", metadata: ["manga": manga.title, "sourceID": manga.sourceID])
+        appendDiagnostic(kind: .stateTransition, severity: .info, title: "Chapter Load Started", message: "Refreshing chapter list.", module: "SourceCaching", metadata: ["manga": manga.title, "sourceID": manga.sourceID])
         do {
             let details = try await repository.chapters(sourceID: manga.sourceID, manga: manga)
-            let merged = mergeDownloadedChapters(existing: peekCachedChapters(for: manga.id) ?? [], incoming: details.chapters)
+            if let anomaly = detectChapterOrderAnomaly(in: details.chapters) {
+                appendDiagnostic(
+                    kind: .source,
+                    severity: .warning,
+                    title: "Chapter Order Normalized",
+                    message: "Detected anomalous chapter ordering from the source and normalized it by chapter number.",
+                    errorCode: DiagnosticErrorCode.srcChapterOrderNormalized.rawValue,
+                    module: "SourceCaching",
+                    metadata: [
+                        "mangaID": manga.id,
+                        "mangaTitle": manga.title,
+                        "sourceID": manga.sourceID,
+                        "mismatchCount": "\(anomaly.mismatchCount)",
+                        "originalOrder": anomaly.originalPreview,
+                        "normalizedOrder": anomaly.normalizedPreview
+                    ]
+                )
+            }
+            let merged = normalizedChapters(
+                mergeDownloadedChapters(existing: peekCachedChapters(for: manga.id) ?? [], incoming: details.chapters)
+            )
             setCachedChapters(merged, for: manga.id)
             sourceErrors[manga.sourceID] = nil
             trimSourceCachesIfNeeded()
@@ -106,7 +126,7 @@ extension AppModel {
             return merged
         } catch {
             sourceErrors[manga.sourceID] = error.localizedDescription
-            appendDiagnostic(kind: .source, title: "Chapter Load Failed", message: error.localizedDescription, metadata: ["sourceID": manga.sourceID, "manga": manga.title])
+            appendDiagnostic(kind: .source, severity: .error, title: "Chapter Load Failed", message: error.localizedDescription, errorCode: DiagnosticErrorCode.srcChapterLoadFailed.rawValue, module: "SourceCaching", metadata: ["sourceID": manga.sourceID, "manga": manga.title])
             return chapters(for: manga)
         }
     }
@@ -117,14 +137,14 @@ extension AppModel {
             pageLoadErrors[chapter.id] = nil
             return chapter.pages
         }
-        appendDiagnostic(kind: .stateTransition, title: "Page Load Started", message: "Refreshing chapter pages.", metadata: ["sourceID": sourceID, "chapterID": chapter.id])
+        appendDiagnostic(kind: .stateTransition, severity: .info, title: "Page Load Started", message: "Refreshing chapter pages.", module: "SourceCaching", metadata: ["sourceID": sourceID, "chapterID": chapter.id])
         do {
             let details = try await repository.pages(sourceID: sourceID, chapter: chapter)
             setCachedPages(details.pages, for: chapter.id)
             pageLoadErrors[chapter.id] = details.errorMessage
             sourceErrors[sourceID] = nil
             if let warning = details.errorMessage, !warning.isEmpty {
-                appendDiagnostic(kind: .reader, title: "Page Load Warning", message: warning, metadata: ["sourceID": sourceID, "chapterID": chapter.id])
+                appendDiagnostic(kind: .reader, severity: .warning, title: "Page Load Warning", message: warning, errorCode: DiagnosticErrorCode.rdrPageLoadWarning.rawValue, module: "SourceCaching", metadata: ["sourceID": sourceID, "chapterID": chapter.id])
             }
             trimSourceCachesIfNeeded()
             await refreshCacheStats()
@@ -132,7 +152,7 @@ extension AppModel {
         } catch {
             sourceErrors[sourceID] = error.localizedDescription
             pageLoadErrors[chapter.id] = error.localizedDescription
-            appendDiagnostic(kind: .reader, title: "Page Load Failed", message: error.localizedDescription, metadata: ["sourceID": sourceID, "chapterID": chapter.id])
+            appendDiagnostic(kind: .reader, severity: .error, title: "Page Load Failed", message: error.localizedDescription, errorCode: DiagnosticErrorCode.rdrPageLoadFailed.rawValue, module: "SourceCaching", metadata: ["sourceID": sourceID, "chapterID": chapter.id])
             return cachedPages(for: chapter.id) ?? []
         }
     }
@@ -154,9 +174,9 @@ extension AppModel {
     }
 
     private func mergeDownloadedChapters(existing: [Chapter], incoming: [Chapter]) -> [Chapter] {
-        guard !existing.isEmpty else { return incoming }
+        guard !existing.isEmpty else { return normalizedChapters(incoming) }
         let existingByID = Dictionary(uniqueKeysWithValues: existing.map { ($0.id, $0) })
-        return incoming.map { chapter in
+        let merged = incoming.map { chapter in
             guard let cached = existingByID[chapter.id], cached.isDownloaded || !cached.pages.isEmpty else {
                 return chapter
             }
@@ -170,6 +190,7 @@ extension AppModel {
                 pages: cached.pages.isEmpty ? chapter.pages : cached.pages
             )
         }
+        return normalizedChapters(merged)
     }
 
     func trimSourceCachesIfNeeded() {

@@ -57,8 +57,7 @@ struct SourcesView: View {
 
     private var filteredSources: [Source] {
         model.visibleSources.filter { source in
-            (query.isEmpty || source.name.localizedCaseInsensitiveContains(query) || source.summary.localizedCaseInsensitiveContains(query)) &&
-            model.state.browsePreferences.enabledLanguages.contains(source.language)
+            query.isEmpty || source.name.localizedCaseInsensitiveContains(query) || source.summary.localizedCaseInsensitiveContains(query)
         }
     }
 
@@ -255,7 +254,11 @@ struct SourceView: View {
         return NavigationLink {
             MangaDetailView(manga: manga)
         } label: {
-            MangaRow(manga: manga)
+            MangaRow(
+                manga: manga,
+                hideSensitiveCover: appModel.state.securityPreferences.hideSensitiveCovers,
+                allowsAdultContent: appModel.source(for: manga.sourceID)?.allowsAdultContent ?? false
+            )
         }
         .contextMenu {
             Button {
@@ -441,10 +444,28 @@ private struct RuntimeSourceFiltersView: View {
 
 struct MangaRow: View {
     let manga: Manga
+    let hideSensitiveCover: Bool
+    let allowsAdultContent: Bool
+
+    init(
+        manga: Manga,
+        hideSensitiveCover: Bool = false,
+        allowsAdultContent: Bool = false
+    ) {
+        self.manga = manga
+        self.hideSensitiveCover = hideSensitiveCover
+        self.allowsAdultContent = allowsAdultContent
+    }
 
     var body: some View {
         HStack(spacing: 14) {
-            MangaCoverView(manga: manga, cornerRadius: 16, overlaySystemImage: "book.closed.fill")
+            MangaCoverView(
+                manga: manga,
+                hideSensitiveCover: hideSensitiveCover,
+                allowsAdultContent: allowsAdultContent,
+                cornerRadius: 16,
+                overlaySystemImage: "book.closed.fill"
+            )
                 .frame(width: 56, height: 74)
 
             VStack(alignment: .leading, spacing: 5) {
@@ -503,7 +524,11 @@ struct LocalImportsView: View {
                         NavigationLink {
                             MangaDetailView(manga: manga)
                         } label: {
-                            MangaRow(manga: manga)
+                            MangaRow(
+                                manga: manga,
+                                hideSensitiveCover: model.state.securityPreferences.hideSensitiveCovers,
+                                allowsAdultContent: model.source(for: manga.sourceID)?.allowsAdultContent ?? false
+                            )
                         }
                     }
                 } else {

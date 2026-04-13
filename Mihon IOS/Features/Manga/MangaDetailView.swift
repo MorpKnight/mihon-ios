@@ -31,11 +31,19 @@ struct MangaDetailView: View {
     }
 
     var body: some View {
+        let hideSensitiveCovers = model.state.securityPreferences.hideSensitiveCovers
+        let allowsAdultContent = model.source(for: displayManga.sourceID)?.allowsAdultContent ?? false
+
         List {
             Section {
                 VStack(alignment: .leading, spacing: 16) {
                     HStack(alignment: .top, spacing: 16) {
-                        MangaCoverView(manga: displayManga, cornerRadius: 24)
+                        MangaCoverView(
+                            manga: displayManga,
+                            hideSensitiveCover: hideSensitiveCovers,
+                            allowsAdultContent: allowsAdultContent,
+                            cornerRadius: 24
+                        )
                             .frame(width: 132, height: 188)
                             .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
                             .onTapGesture {
@@ -300,7 +308,11 @@ struct MangaDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
         .sheet(isPresented: $showCover) {
-            CoverSheet(manga: displayManga)
+            CoverSheet(
+                manga: displayManga,
+                hideSensitiveCover: hideSensitiveCovers,
+                allowsAdultContent: allowsAdultContent
+            )
         }
         .confirmationDialog("Download all chapters?", isPresented: $showDownloadAllConfirm) {
             Button("Download all", role: .none) {
@@ -428,11 +440,18 @@ private struct ChapterDownloadInlineStatusView: View {
 
 private struct CoverSheet: View {
     let manga: Manga
+    let hideSensitiveCover: Bool
+    let allowsAdultContent: Bool
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 24) {
-                MangaCoverView(manga: manga, cornerRadius: 32)
+                MangaCoverView(
+                    manga: manga,
+                    hideSensitiveCover: hideSensitiveCover,
+                    allowsAdultContent: allowsAdultContent,
+                    cornerRadius: 32
+                )
                     .frame(height: 360)
 
                 ShareLink(item: manga.title) {

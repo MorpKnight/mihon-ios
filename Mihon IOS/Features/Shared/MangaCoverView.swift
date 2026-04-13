@@ -7,10 +7,25 @@ import SwiftUI
 import Foundation
 
 struct MangaCoverView: View {
-    @EnvironmentObject private var model: AppModel
     let manga: Manga
+    let hideSensitiveCover: Bool
+    let allowsAdultContent: Bool
     var cornerRadius: CGFloat = 16
     var overlaySystemImage: String? = nil
+
+    init(
+        manga: Manga,
+        hideSensitiveCover: Bool = false,
+        allowsAdultContent: Bool = false,
+        cornerRadius: CGFloat = 16,
+        overlaySystemImage: String? = nil
+    ) {
+        self.manga = manga
+        self.hideSensitiveCover = hideSensitiveCover
+        self.allowsAdultContent = allowsAdultContent
+        self.cornerRadius = cornerRadius
+        self.overlaySystemImage = overlaySystemImage
+    }
 
     var body: some View {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -55,8 +70,7 @@ struct MangaCoverView: View {
     }
 
     private var shouldHideCover: Bool {
-        model.state.securityPreferences.hideSensitiveCovers &&
-        (model.source(for: manga.sourceID)?.allowsAdultContent ?? false)
+        hideSensitiveCover && allowsAdultContent
     }
 
     private var hiddenCoverOverlay: some View {

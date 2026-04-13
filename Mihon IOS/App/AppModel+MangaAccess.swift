@@ -6,9 +6,15 @@
 import Foundation
 
 extension AppModel {
+    struct ChapterOrderAnomaly {
+        let mismatchCount: Int
+        let originalPreview: String
+        let normalizedPreview: String
+    }
+
     var allManga: [Manga] {
         let remote = (
-            repository.sources()
+            sources
                 .filter { $0.kind == .remote }
                 .flatMap { repository.mangas(for: $0.id) } +
             sourceMangaCache.values.flatMap { $0 } +
@@ -22,6 +28,14 @@ extension AppModel {
         }
         return remote.values.sorted { $0.title < $1.title } +
         localContentRepository.mangas(from: importRecords, sourceID: "local-files")
+    }
+
+    func allMangaByID() -> [String: Manga] {
+        Dictionary(uniqueKeysWithValues: allManga.map { ($0.id, $0) })
+    }
+
+    func progressByMangaID() -> [String: ReadingProgress] {
+        Dictionary(uniqueKeysWithValues: state.progress.map { ($0.mangaID, $0) })
     }
 
     func mangas(for source: Source) -> [Manga] {
@@ -41,12 +55,12 @@ extension AppModel {
 
     func chapters(for manga: Manga) -> [Chapter] {
         if manga.sourceID == "local-files" {
-            return localContentRepository.chapters(for: manga.id, from: importRecords)
+            return normalizedChapters(localContentRepository.chapters(for: manga.id, from: importRecords))
         }
         if let cached = cachedChapters(for: manga.id), !cached.isEmpty {
-            return cached
+            return normalizedChapters(cached)
         }
-        return repository.chapters(for: manga.id)
+        return normalizedChapters(repository.chapters(for: manga.id))
     }
 
     func latestChapter(for manga: Manga) -> Chapter? {
@@ -73,5 +87,85 @@ extension AppModel {
         if !manga.genres.isEmpty { score += 1 }
         if manga.author != "Unknown" { score += 1 }
         return score
+    }
+
+    func normalizedChapters(_ chapters: [Chapter]) -> [Chapter] {
+        chapters.sorted(by: isChapterNewer(_:than:))
+    }
+
+    func detectChapterOrderAnomaly(in chapters: [Chapter]) -> ChapterOrderAnomaly? {
+        guard chapters.count > 1 else { return nil }
+        let normalized = normalizedChapters(chapters)
+        let originalIDs = chapters.map(\.id)
+        let normalizedIDs = normalized.map(\.id)
+        guard originalIDs != normalizedIDs else { return nil }
+
+        let mismatchCount = zip(originalIDs, normalizedIDs).reduce(into: 0) { count, pair in
+            if pair.0 != pair.1 {
+                count += 1
+            }
+        }
+
+        let numericInversionDetected = zip(chapters, chapters.dropFirst()).contains { lhs, rhs in
+            let lhsNumber = normalizedChapterNumber(lhs)
+            let rhsNumber = normalizedChapterNumber(rhs)
+            guard lhsNumber > 0, rhsNumber > 0 else { return false }
+            return lhsNumber < rhsNumber
+        }
+
+        let suspiciousLargeJump = zip(chapters, chapters.dropFirst()).contains { lhs, rhs in
+            let lhsNumber = normalizedChapterNumber(lhs)
+            let rhsNumber = normalizedChapterNumber(rhs)
+            guard lhsNumber > 0, rhsNumber > 0 else { return false }
+            return abs(lhsNumber - rhsNumber) > 25 && lhsNumber < rhsNumber
+        }
+
+        guard mismatchCount > 0 || numericInversionDetected || suspiciousLargeJump else { return nil }
+
+        return ChapterOrderAnomaly(
+            mismatchCount: mismatchCount,
+            originalPreview: previewChapterOrder(chapters),
+            normalizedPreview: previewChapterOrder(normalized)
+        )
+    }
+
+    private func isChapterNewer(_ lhs: Chapter, than rhs: Chapter) -> Bool {
+        let lhsNumber = normalizedChapterNumber(lhs)
+        let rhsNumber = normalizedChapterNumber(rhs)
+        let lhsHasNumber = lhsNumber > 0
+        let rhsHasNumber = rhsNumber > 0
+
+        if lhsHasNumber && rhsHasNumber && lhsNumber != rhsNumber {
+            return lhsNumber > rhsNumber
+        }
+        if lhsHasNumber != rhsHasNumber {
+            return lhsHasNumber
+        }
+        if lhs.releaseDate != rhs.releaseDate {
+            return lhs.releaseDate > rhs.releaseDate
+        }
+        if lhs.number != rhs.number {
+            return lhs.number > rhs.number
+        }
+        let titleComparison = lhs.title.localizedStandardCompare(rhs.title)
+        if titleComparison != .orderedSame {
+            return titleComparison == .orderedDescending
+        }
+        return lhs.id > rhs.id
+    }
+
+    private func normalizedChapterNumber(_ chapter: Chapter) -> Double {
+        chapter.number > 0 ? chapter.number : 0
+    }
+
+    private func previewChapterOrder(_ chapters: [Chapter], limit: Int = 6) -> String {
+        chapters.prefix(limit).map { chapter in
+            if chapter.number > 0 {
+                return chapter.number == floor(chapter.number)
+                    ? String(Int(chapter.number))
+                    : String(chapter.number)
+            }
+            return chapter.title
+        }.joined(separator: " ")
     }
 }

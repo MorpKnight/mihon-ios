@@ -10,8 +10,24 @@ struct AppChromeView: View {
     @Environment(\.scenePhase) private var scenePhase
     private let biometricLockEnabled = true
 
+    // Fix #5: Alert state lives here (stable parent) to avoid detached-view warnings
+    // when BiometricLockView is conditionally removed from the hierarchy.
+    @State private var showBiometricRetryAlert = false
+
+    private var isPrivacyOverlayActive: Bool {
+        model.state.securityPreferences.blurAppSwitcher && scenePhase != .active
+    }
+
+    private var isBiometricLockActive: Bool {
+        biometricLockEnabled
+            && model.state.securityPreferences.requireBiometricUnlock
+            && !model.isAppUnlocked
+            && scenePhase == .active
+    }
+
     var body: some View {
         ZStack {
+            // Main content — hidden from VoiceOver when locked/blurred (Fix #1)
             Group {
                 switch model.bootState {
                 case .launching:
@@ -28,8 +44,10 @@ struct AppChromeView: View {
                         }
                 }
             }
+            .accessibilityHidden(isPrivacyOverlayActive || isBiometricLockActive)
 
-            if model.state.securityPreferences.blurAppSwitcher && scenePhase != .active {
+            // Privacy blur overlay (app switcher)
+            if isPrivacyOverlayActive {
                 Rectangle()
                     .fill(.ultraThinMaterial)
                     .ignoresSafeArea()
@@ -42,10 +60,24 @@ struct AppChromeView: View {
                 .foregroundStyle(.primary)
             }
 
-            if biometricLockEnabled && model.state.securityPreferences.requireBiometricUnlock && !model.isAppUnlocked && scenePhase == .active {
-                BiometricLockView()
-                    .transition(.opacity)
+            // Biometric lock overlay
+            if isBiometricLockActive {
+                BiometricLockView(
+                    onBiometricFailure: {
+                        showBiometricRetryAlert = true
+                    }
+                )
+                .transition(.opacity)
             }
+        }
+        // Fix #5: Alert is attached here (always-live parent) — safe across scene-phase transitions
+        .alert("Face ID Failed", isPresented: $showBiometricRetryAlert) {
+            Button("Retry") {
+                Task { await model.requestBiometricUnlock() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(model.biometricErrorMessage ?? "Authentication failed. Please try again.")
         }
         .onAppear {
             if biometricLockEnabled && model.state.securityPreferences.requireBiometricUnlock {
@@ -85,7 +117,10 @@ struct AppChromeView: View {
 
 private struct BiometricLockView: View {
     @EnvironmentObject private var model: AppModel
-    @State private var showRetryAlert = false
+    /// Callback to the stable parent view that should present the retry alert.
+    /// Fix #5: Alert presentation is delegated upward so it isn't detached
+    /// when this view is removed from the ZStack during scene-phase transitions.
+    let onBiometricFailure: () -> Void
 
     var body: some View {
         ZStack {
@@ -116,15 +151,7 @@ private struct BiometricLockView: View {
         }
         .onChange(of: model.biometricErrorMessage) { _, newValue in
             guard let message = newValue, !message.isEmpty else { return }
-            showRetryAlert = true
-        }
-        .alert("Face ID Failed", isPresented: $showRetryAlert) {
-            Button("Retry") {
-                Task { await model.requestBiometricUnlock() }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text(model.biometricErrorMessage ?? "Authentication failed. Please try again.")
+            onBiometricFailure()
         }
     }
 }
@@ -132,8 +159,17 @@ private struct BiometricLockView: View {
 private struct LaunchView: View {
     var body: some View {
         ZStack {
-            LinearGradient(colors: [Color(hex: "#1F3E86"), Color(hex: "#0F172A")], startPoint: .topLeading, endPoint: .bottomTrailing)
-                .ignoresSafeArea()
+            // Fix #7: Use semantic Asset Catalog colors so light/dark/high-contrast
+            // appearances are handled automatically instead of hardcoded hex values.
+            LinearGradient(
+                colors: [
+                    Color("LaunchGradientTop"),
+                    Color("LaunchGradientBottom")
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
 
             VStack(spacing: 18) {
                 Image(systemName: "book.pages")

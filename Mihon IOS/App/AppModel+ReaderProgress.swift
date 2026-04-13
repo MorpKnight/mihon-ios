@@ -44,12 +44,24 @@ extension AppModel {
     }
 
     var historyDisplayEntries: [(HistoryEntry, Manga, Chapter)] {
-        state.history
+        let mangaIndex = allMangaByID()
+        var chaptersByMangaID: [String: [Chapter]] = [:]
+
+        func chaptersForManga(_ manga: Manga) -> [Chapter] {
+            if let cached = chaptersByMangaID[manga.id] {
+                return cached
+            }
+            let resolved = chapters(for: manga)
+            chaptersByMangaID[manga.id] = resolved
+            return resolved
+        }
+
+        return state.history
             .sorted { $0.timestamp > $1.timestamp }
-            .compactMap { entry in
+            .compactMap { entry -> (HistoryEntry, Manga, Chapter)? in
                 guard
-                    let manga = allManga.first(where: { $0.id == entry.mangaID }),
-                    let chapter = chapters(for: manga).first(where: { $0.id == entry.chapterID })
+                    let manga = mangaIndex[entry.mangaID],
+                    let chapter = chaptersForManga(manga).first(where: { $0.id == entry.chapterID })
                 else { return nil }
                 return (entry, manga, chapter)
             }
@@ -82,19 +94,22 @@ extension AppModel {
     }
 
     var updateFeed: [UpdateFeedItem] {
-        libraryItems(selectedCategoryID: nil)
-            .compactMap { item in
+        let trackedMangaIDs = Set(state.trackers.map(\.mangaID))
+        return libraryItems(selectedCategoryID: nil)
+            .compactMap { item -> UpdateFeedItem? in
                 guard let chapter = item.latestChapter else { return nil }
                 let entry = UpdateEntry(
                     id: "\(item.manga.id)-\(chapter.id)",
                     mangaID: item.manga.id,
                     chapterID: chapter.id,
                     sourceID: item.manga.sourceID,
-                    isBookmarked: trackerBindings(for: item.manga).isEmpty == false
+                    isBookmarked: trackedMangaIDs.contains(item.manga.id)
                 )
                 return UpdateFeedItem(id: entry.id, manga: item.manga, chapter: chapter, entry: entry)
             }
-            .sorted { $0.chapter.releaseDate > $1.chapter.releaseDate }
+            .sorted { (lhs: UpdateFeedItem, rhs: UpdateFeedItem) in
+                lhs.chapter.releaseDate > rhs.chapter.releaseDate
+            }
     }
 
     func updateFeed(searchText: String, downloadedOnly: Bool) -> [UpdateFeedItem] {
@@ -110,14 +125,14 @@ extension AppModel {
 
     func nextChapter(after chapter: Chapter, in manga: Manga) -> Chapter? {
         let items = chapters(for: manga)
-        guard let index = items.firstIndex(where: { $0.id == chapter.id }), index + 1 < items.count else { return nil }
-        return items[index + 1]
+        guard let index = items.firstIndex(where: { $0.id == chapter.id }), index > 0 else { return nil }
+        return items[index - 1]
     }
 
     func previousChapter(before chapter: Chapter, in manga: Manga) -> Chapter? {
         let items = chapters(for: manga)
-        guard let index = items.firstIndex(where: { $0.id == chapter.id }), index > 0 else { return nil }
-        return items[index - 1]
+        guard let index = items.firstIndex(where: { $0.id == chapter.id }), index + 1 < items.count else { return nil }
+        return items[index + 1]
     }
 
     func updateProgress(for manga: Manga, chapter: Chapter, pageIndex: Int, totalPages: Int? = nil) {

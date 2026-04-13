@@ -16,6 +16,9 @@ private enum AppTab: Hashable {
 struct RootTabView: View {
     @EnvironmentObject private var model: AppModel
     @State private var selectedTab: AppTab = .library
+    // Fix #6: Track the previous tab so we can detect a reselect natively
+    // without the UIKit TabBarControllerAccessor hack.
+    @State private var previousTab: AppTab = .library
     @State private var libraryPath = NavigationPath()
     @State private var browsePath = NavigationPath()
     @State private var historyPath = NavigationPath()
@@ -66,30 +69,31 @@ struct RootTabView: View {
             .tag(AppTab.more)
         }
         .tint(model.chromeTint)
+        // Fix #2: Remove forced `.visible` so iOS can apply the natural
+        // edge-to-edge transparency behaviour — the material appears only when
+        // scrollable content passes beneath the tab bar.
         .toolbarBackground(.ultraThinMaterial, for: .tabBar)
-        .toolbarBackground(.visible, for: .tabBar)
-        .background(
-            TabBarControllerAccessor { index in
-                handleTabReselect(index: index)
+        // Fix #6: Native pop-to-root — no UIKit bridging required.
+        // When the user taps an already-selected tab, `selectedTab` gets set
+        // to the same value it already holds. SwiftUI will fire onChange even
+        // for same-value assignments on a TabView selection binding, so we
+        // compare against `previousTab` to distinguish a reselect from a
+        // genuine tab switch.
+        .onChange(of: selectedTab) { old, new in
+            if new == old {
+                popToRoot(for: new)
             }
-        )
+            previousTab = new
+        }
     }
 
-    private func handleTabReselect(index: Int) {
-        // The order matches the TabView items above.
-        switch index {
-        case 0:
-            libraryPath = NavigationPath()
-        case 1:
-            browsePath = NavigationPath()
-        case 2:
-            historyPath = NavigationPath()
-        case 3:
-            updatesPath = NavigationPath()
-        case 4:
-            morePath = NavigationPath()
-        default:
-            break
+    private func popToRoot(for tab: AppTab) {
+        switch tab {
+        case .library:   libraryPath  = NavigationPath()
+        case .browse:    browsePath   = NavigationPath()
+        case .history:   historyPath  = NavigationPath()
+        case .updates:   updatesPath  = NavigationPath()
+        case .more:      morePath     = NavigationPath()
         }
     }
 }
